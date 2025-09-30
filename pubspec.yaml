@@ -1,0 +1,30 @@
+name: bitasa_web
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1 # State Management modo oscuro
+  firebase_core: ^2.27.2
+  cloud_firestore: ^4.15.10
+  # La línea de 'intl' fue eliminada para resolver el conflicto de versiones.
+  # flutter_localizations la incluirá automáticamente con la versión correcta.
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+# Para añadir assets a tu aplicación, añade una sección de assets, así:
+  assets:
+    - assets/images/
