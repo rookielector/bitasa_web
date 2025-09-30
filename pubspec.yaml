@@ -4,18 +4,19 @@ publish_to: 'none'
 version: 0.1.0
 
 environment:
-  sdk: ^3.9.2
+  # Cambiamos la restricción para ser compatibles con el entorno de GitHub Actions.
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  flutter_riverpod: ^2.5.1 # State Management modo oscuro
+  
+  flutter_riverpod: ^2.5.1
   firebase_core: ^2.27.2
   cloud_firestore: ^4.15.10
-  # La línea de 'intl' fue eliminada para resolver el conflicto de versiones.
-  # flutter_localizations la incluirá automáticamente con la versión correcta.
+  # La línea de 'intl' se elimina para evitar conflictos.
 
 dev_dependencies:
   flutter_test:
@@ -25,6 +26,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-# Para añadir assets a tu aplicación, añade una sección de assets, así:
   assets:
     - assets/images/
