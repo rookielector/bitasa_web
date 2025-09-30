@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 0.1.0
 
 environment:
-  # Cambiamos la restricción para ser compatibles con el entorno de GitHub Actions.
+  # Mantenemos la restricción flexible para ser compatibles con el entorno de CI/CD.
   sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
@@ -21,7 +21,10 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  
+  # --- LÍNEA CORREGIDA ---
+  # Bajamos la versión de flutter_lints a una que es compatible con el SDK de Dart 3.4.3.
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
