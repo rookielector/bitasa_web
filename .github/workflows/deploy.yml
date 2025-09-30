@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
 
+# --- AÑADE ESTA SECCIÓN ---
+# Otorga permisos de escritura al workflow para que pueda publicar en gh-pages.
+permissions:
+  contents: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -14,7 +19,6 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          # Forzamos una versión numérica muy reciente para asegurar un SDK de Dart moderno.
           flutter-version: '3.22.2'
           channel: 'stable'
           cache: true
@@ -23,8 +27,6 @@ jobs:
         run: flutter pub get
 
       - name: Build Web App
-        # Eliminamos la opción '--web-renderer' para máxima compatibilidad,
-        # y usamos '--release' para una construcción optimizada.
         run: flutter build web --release --base-href /bitasa_web/
 
       - name: Deploy to GitHub Pages
