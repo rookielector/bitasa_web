@@ -9,23 +9,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - name: Setup Dart SDK
+        # --- LÍNEA CORREGIDA ---
+        uses: dart-lang/setup-dart@v1
         with:
-          # Confiamos en que el canal estable nos dará la versión más reciente,
-          # que debe incluir un SDK de Dart compatible.
-          channel: 'stable'
-
+          sdk: stable
+      
+      - name: Install Flutter
+        run: dart pub global activate flutter_web
+      
       - name: Install dependencies
         run: flutter pub get
 
       - name: Build Web App
-        run: flutter build web --web-renderer canvaskit --base-href /bitasa_web/
+        run: flutter build web --release --base-href /bitasa_web/
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/web
