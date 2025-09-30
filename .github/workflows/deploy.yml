@@ -14,6 +14,8 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Forzamos una versión numérica muy reciente para asegurar un SDK de Dart moderno.
+          flutter-version: '3.22.2'
           channel: 'stable'
           cache: true
 
@@ -21,7 +23,9 @@ jobs:
         run: flutter pub get
 
       - name: Build Web App
-        run: flutter build web --web-renderer canvaskit --base-href /bitasa_web/
+        # Eliminamos la opción '--web-renderer' para máxima compatibilidad,
+        # y usamos '--release' para una construcción optimizada.
+        run: flutter build web --release --base-href /bitasa_web/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
