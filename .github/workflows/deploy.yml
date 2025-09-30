@@ -15,8 +15,8 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          # Forzamos una versión de Flutter que sabemos que es compatible.
-          flutter-version: '3.13.0'
+          # Usamos una versión de Flutter que incluye un SDK de Dart compatible.
+          flutter-version: '3.22.2'
 
       - name: Install dependencies
         run: flutter pub get
