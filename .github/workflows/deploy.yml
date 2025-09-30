@@ -14,9 +14,9 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Confiamos en que el canal estable nos dará la versión más reciente,
+          # que debe incluir un SDK de Dart compatible.
           channel: 'stable'
-          # Usamos una versión de Flutter que incluye un SDK de Dart compatible.
-          flutter-version: '3.22.2'
 
       - name: Install dependencies
         run: flutter pub get
