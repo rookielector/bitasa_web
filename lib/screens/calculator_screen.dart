@@ -205,7 +205,7 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
   Widget _buildRateInfoSection(DateTime date, double rate, String source, String target) {
     final formattedDate = DateFormat.yMMMMd('es_ES').format(date);
     // Usamos un formateador específico para la tasa unitaria, con más decimales.
-    final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
+    final rateFormatter = NumberFormat('#,##0.0000', 'es_VE');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 24.0),
