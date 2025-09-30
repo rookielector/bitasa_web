@@ -11,20 +11,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Dart SDK
-        # --- LÍNEA CORREGIDA ---
-        uses: dart-lang/setup-dart@v1
+      - name: Clean Flutter cache
+        # Este paso intenta limpiar cualquier caché antigua de Flutter en la máquina virtual.
+        run: rm -rf /opt/hostedtoolcache/flutter
+
+      - name: Setup Flutter
+        # Volvemos a usar el action estándar y confiable.
+        uses: subosito/flutter-action@v2
         with:
-          sdk: stable
-      
-      - name: Install Flutter
-        run: dart pub global activate flutter_web
-      
+          # Forzamos una versión muy reciente que sabemos que tiene un SDK de Dart compatible.
+          flutter-version: '3.22.2'
+          channel: 'stable'
+          # Esta opción ayuda a asegurar que la caché se maneje correctamente.
+          cache: true
+
       - name: Install dependencies
         run: flutter pub get
 
       - name: Build Web App
-        run: flutter build web --release --base-href /bitasa_web/
+        # Volvemos al comando de build original, ya que la versión de Flutter será la correcta.
+        run: flutter build web --web-renderer canvaskit --base-href /bitasa_web/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
