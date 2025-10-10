@@ -4,6 +4,7 @@ publish_to: 'none'
 version: 0.1.0
 
 environment:
+  # Usamos una restricción de SDK que es compatible con las últimas versiones de los paquetes.
   sdk: '>=3.2.0 <4.0.0'
 
 dependencies:
@@ -12,19 +13,23 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   
-  flutter_riverpod:
-  firebase_core:
-  cloud_firestore:
-  path_provider:
-  
-  # --- NUEVA DEPENDENCIA ---
-  shared_preferences: ^2.2.3
+  flutter_riverpod: ^2.5.1
+  firebase_core: ^2.27.0
+  cloud_firestore: ^4.15.8
+  path_provider: ^2.1.2
+
+  # --- NUEVAS DEPENDENCIAS DE SEMBAST ---
+  # El paquete principal de la base de datos Sembast.
+  sembast: ^3.7.0
+  # La implementación específica para la web, que usa IndexedDB.
+  sembast_web: ^2.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   
-  flutter_lints:
+  # Ya no necesitamos build_runner ni isar_generator.
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
