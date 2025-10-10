@@ -4,8 +4,7 @@ publish_to: 'none'
 version: 0.1.0
 
 environment:
-  # Mantenemos la restricción flexible para ser compatibles con el entorno de CI/CD.
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.2.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -13,21 +12,21 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   
-  flutter_riverpod: ^2.5.1
-  firebase_core: ^2.27.2
-  cloud_firestore: ^4.15.10
-  # La línea de 'intl' se elimina para evitar conflictos.
+  flutter_riverpod:
+  firebase_core:
+  cloud_firestore:
+  path_provider:
+  
+  # --- NUEVA DEPENDENCIA ---
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   
-  # --- LÍNEA CORREGIDA ---
-  # Bajamos la versión de flutter_lints a una que es compatible con el SDK de Dart 3.4.3.
-  flutter_lints: ^4.0.0
+  flutter_lints:
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/images/

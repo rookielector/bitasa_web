@@ -3,6 +3,7 @@
 import 'package:bitasa_web/core/theme/theme_provider.dart';
 import 'package:bitasa_web/features/calculator/providers/calculator_provider.dart';
 import 'package:bitasa_web/features/currency/currency_data.dart';
+import 'package:bitasa_web/features/currency/data_wrapper.dart'; // Importamos el DataWrapper
 import 'package:bitasa_web/features/currency/widgets/currency_selection_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -69,21 +70,6 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
     }
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final now = DateTime.now();
-    final newDate = await showDatePicker(
-      context: context,
-      initialDate: ref.read(calculatorProvider).selectedDate,
-      firstDate: DateTime(2022),
-      lastDate: now,
-      locale: const Locale('es', 'ES'),
-    );
-
-    if (newDate != null) {
-      ref.read(calculatorProvider.notifier).updateSelectedDate(newDate);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.listen<CalculatorState>(calculatorProvider, (previous, next) {
@@ -96,7 +82,20 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
 
     final themeMode = ref.watch(themeProvider);
     final isDarkMode = themeMode == ThemeMode.dark || (themeMode == ThemeMode.system && Theme.of(context).brightness == Brightness.dark);
+    
+    // Observamos el estado completo del StreamProvider (el AsyncValue<DataWrapper<...>>)
     final ratesAsyncValue = ref.watch(ratesProvider);
+
+    // --- LÓGICA INTELIGENTE PARA EL BANNER ---
+    // Por defecto, no mostramos el banner.
+    bool showOfflineBanner = false;
+    // Usamos .whenData para ejecutar código solo cuando hay datos.
+    ratesAsyncValue.whenData((wrapper) {
+      // Mostramos el banner únicamente si tenemos datos Y su origen es la caché.
+      if (wrapper.source == DataSource.cache) {
+        showOfflineBanner = true;
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -114,27 +113,56 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
         ],
       ),
       body: SafeArea(
-        child: ratesAsyncValue.when(
-          data: (rates) => _buildCalculatorView(),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stackTrace) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text("Error al cargar las tasas.\n$error", textAlign: TextAlign.center),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () { ref.invalidate(ratesProvider); },
-                      child: const Text('Reintentar'),
-                    ),
-                  ],
+        child: Column(
+          children: [
+            // El banner ahora se muestra o se oculta según nuestra nueva lógica.
+            if (showOfflineBanner)
+              Container(
+                width: double.infinity,
+                color: Colors.orange.shade800,
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: const Text(
+                  'Modo Offline: Mostrando últimas tasas guardadas.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
-            );
-          },
+            Expanded(
+              child: ratesAsyncValue.when(
+                // En el caso 'data', ahora recibimos el 'wrapper', pero no necesitamos usarlo
+                // directamente aquí, ya que _buildCalculatorView consume los providers derivados.
+                data: (wrapper) => _buildCalculatorView(),
+                loading: () {
+                  // Esta lógica mejorada evita el 'flicker' del indicador de carga.
+                  // Si ya tenemos un valor (de la caché), seguimos mostrando la calculadora
+                  // mientras los nuevos datos cargan en segundo plano.
+                  if (ratesAsyncValue.hasValue) {
+                    return _buildCalculatorView();
+                  }
+                  // El indicador de carga solo se muestra la primera vez que se abre la app sin datos en caché.
+                  return const Center(child: CircularProgressIndicator());
+                },
+                error: (error, stackTrace) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text("Error al cargar las tasas.\n$error", textAlign: TextAlign.center),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: () { ref.invalidate(ratesProvider); },
+                            child: const Text('Reintentar'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -144,12 +172,9 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
     final calculatorState = ref.watch(calculatorProvider);
     final convertedAmount = ref.watch(convertedAmountProvider);
     
-    // Convertimos los strings a números para la lógica de pluralización.
     final num inputAmount = num.tryParse(calculatorState.inputAmount) ?? 0;
-    // Para el monto convertido, primero debemos limpiarlo del formato.
     final num outputAmount = num.tryParse(convertedAmount.replaceAll('.', '').replaceAll(',', '.')) ?? 0;
     
-    // Consumimos las tasas ya redondeadas del nuevo provider.
     final rates = ref.watch(roundedRatesProvider);
     
     final double sourceRate = rates[calculatorState.sourceCurrencyId] ?? 0.0;
@@ -196,15 +221,13 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
             onTapSelector: () => _showCurrencyPicker(context, isSource: false),
           ),
           const Spacer(),
-          _buildRateInfoSection(calculatorState.selectedDate, displayRate, calculatorState.sourceCurrencyId, calculatorState.targetCurrencyId),
+          _buildRateInfoSection(displayRate, calculatorState.sourceCurrencyId, calculatorState.targetCurrencyId),
         ],
       ),
     );
   }
 
-  Widget _buildRateInfoSection(DateTime date, double rate, String source, String target) {
-    final formattedDate = DateFormat.yMMMMd('es_ES').format(date);
-    // Usamos un formateador específico para la tasa unitaria, con más decimales.
+  Widget _buildRateInfoSection(double rate, String source, String target) {
     final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
 
     return Padding(
@@ -217,26 +240,9 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
             style: const TextStyle(color: Colors.grey, fontSize: 16),
           ),
           const SizedBox(height: 8),
-          GestureDetector(
-            onTap: () => _selectDate(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Tasa del: $formattedDate',
-                    style: const TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
+          const Text(
+            'Usando la tasa de cambio más reciente disponible.',
+            style: TextStyle(color: Colors.grey, fontSize: 14),
           ),
         ],
       ),
