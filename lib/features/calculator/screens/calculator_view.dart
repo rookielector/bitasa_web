@@ -1,4 +1,4 @@
-// lib/screens/calculator_screen.dart
+// lib/features/calculator/screens/calculator_view.dart
 
 import 'package:bitasa_web/core/theme/theme_provider.dart';
 import 'package:bitasa_web/features/calculator/providers/calculator_provider.dart';
@@ -9,14 +9,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-class CalculatorScreen extends ConsumerStatefulWidget {
-  const CalculatorScreen({super.key});
+// El nombre de la clase ha cambiado a CalculatorView
+class CalculatorView extends ConsumerStatefulWidget {
+  const CalculatorView({super.key});
 
   @override
-  ConsumerState<CalculatorScreen> createState() => _CalculatorScreenState();
+  ConsumerState<CalculatorView> createState() => _CalculatorViewState();
 }
 
-class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
+class _CalculatorViewState extends ConsumerState<CalculatorView> {
   late final TextEditingController _amountController;
   late final FocusNode _amountFocusNode;
   
@@ -68,8 +69,7 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
       }
     }
   }
-
-  // --- REINTEGRAMOS EL MÉTODO PARA MOSTRAR EL SELECTOR DE FECHA ---
+  
   Future<void> _selectDate(BuildContext context) async {
     final now = DateTime.now();
     final newDate = await showDatePicker(
@@ -95,54 +95,36 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
       }
     });
 
-    final themeMode = ref.watch(themeProvider);
-    final isDarkMode = themeMode == ThemeMode.dark || (themeMode == ThemeMode.system && Theme.of(context).brightness == Brightness.dark);
     final ratesAsyncValue = ref.watch(ratesProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 80, 
-        title: Image.asset('assets/images/logo.webp', height: 65),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(isDarkMode ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
-            tooltip: 'Cambiar Tema',
-            onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: ratesAsyncValue.when(
-          data: (rates) => _buildCalculatorView(),
-          loading: () {
-            if (ratesAsyncValue.hasValue) {
-              return _buildCalculatorView();
-            }
-            return const Center(child: CircularProgressIndicator());
-          },
-          error: (error, stackTrace) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text("Error al cargar las tasas.\n$error", textAlign: TextAlign.center),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () { ref.invalidate(ratesProvider); },
-                      child: const Text('Reintentar'),
-                    ),
-                  ],
+    // --- CAMBIO IMPORTANTE: Quitamos el Scaffold y el AppBar ---
+    // La vista ahora es solo el contenido que se mostrará dentro del HomeShell.
+    return ratesAsyncValue.when(
+      data: (rates) => _buildCalculatorView(),
+      loading: () {
+        if (ratesAsyncValue.hasValue) {
+          return _buildCalculatorView();
+        }
+        return const Center(child: CircularProgressIndicator());
+      },
+      error: (error, stackTrace) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text("Error al cargar las tasas.\n$error", textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () { ref.invalidate(ratesProvider); },
+                  child: const Text('Reintentar'),
                 ),
-              ),
-            );
-          },
-        ),
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -163,8 +145,9 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center, // Centramos el contenido
         children: [
-          const SizedBox(height: 10),
+          const Spacer(), // Espacio flexible arriba
           _buildConversionCard(
             title: 'Tú envías',
             currencyCode: calculatorState.sourceCurrencyId,
@@ -198,7 +181,7 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
             isInput: false,
             onTapSelector: () => _showCurrencyPicker(context, isSource: false),
           ),
-          const Spacer(),
+          const Spacer(), // Espacio flexible abajo
           _buildRateInfoSection(calculatorState.selectedDate, displayRate, calculatorState.sourceCurrencyId, calculatorState.targetCurrencyId),
         ],
       ),

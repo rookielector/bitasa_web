@@ -4,7 +4,6 @@ publish_to: 'none'
 version: 0.1.0
 
 environment:
-  # Usamos una restricción de SDK que es compatible con las últimas versiones de los paquetes.
   sdk: '>=3.2.0 <4.0.0'
 
 dependencies:
@@ -18,17 +17,20 @@ dependencies:
   cloud_firestore: ^4.15.8
   path_provider: ^2.1.2
 
-  # --- NUEVAS DEPENDENCIAS DE SEMBAST ---
-  # El paquete principal de la base de datos Sembast.
   sembast: ^3.7.0
-  # La implementación específica para la web, que usa IndexedDB.
   sembast_web: ^2.3.0
+
+  # --- AÑADIR ESTAS TRES LÍNEAS ---
+  collection: ^1.18.0
+  fl_chart: ^0.68.0
+  scrollable_positioned_list: ^0.3.8
+
+  table_calendar: ^3.1.2 # Calendario
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   
-  # Ya no necesitamos build_runner ni isar_generator.
   flutter_lints: ^3.0.0
 
 flutter:
