@@ -3,6 +3,8 @@
 import 'package:bitasa_web/features/currency/currency_data.dart';
 import 'package:bitasa_web/features/currency/exchange_rate.dart';
 import 'package:bitasa_web/features/historical/providers/historical_provider.dart';
+// --- IMPORTAMOS NUESTRA NUEVA VISTA DE GRÁFICOS ---
+import 'package:bitasa_web/features/historical/screens/charts_view.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,14 +19,16 @@ class HistoricalPricesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ratesAsyncValue = ref.watch(historicalRatesStreamProvider);
 
+    // --- CAMBIO: AHORA TENEMOS 2 PESTAÑAS ---
     return DefaultTabController(
-      length: 1,
+      length: 2,
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: 0,
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.list_alt), text: 'Lista'),
+              Tab(icon: Icon(Icons.show_chart), text: 'Gráficos'),
             ],
           ),
         ),
@@ -33,7 +37,13 @@ class HistoricalPricesScreen extends ConsumerWidget {
             if (rates.isEmpty) {
               return const Center(child: Text('No hay datos históricos disponibles.'));
             }
-            return const HistoricalListView();
+            // --- CAMBIO: USAMOS UN TABBARVIEW ---
+            return const TabBarView(
+              children: [
+                HistoricalListView(), // Primera pestaña
+                ChartsView(),         // Segunda pestaña
+              ],
+            );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stack) => Center(
@@ -44,6 +54,9 @@ class HistoricalPricesScreen extends ConsumerWidget {
     );
   }
 }
+
+// El resto del archivo (HistoricalListView, _CalendarDialog) no necesita cambios.
+// Pega aquí el resto del código que ya teníamos para esas clases.
 
 class HistoricalListView extends ConsumerStatefulWidget {
   const HistoricalListView({super.key});
@@ -111,7 +124,6 @@ class _HistoricalListViewState extends ConsumerState<HistoricalListView> {
     final sortedDates = groupedRates.keys.toList();
     final rateFormatter = NumberFormat("#,##0.00", "es_VE");
 
-    // Mapa para mostrar textos más amigables en el dropdown.
     const sortOptions = {
       HistoricalSortCriteria.dateDesc: 'Fecha (Reciente)',
       HistoricalSortCriteria.dateAsc: 'Fecha (Antigua)',
@@ -123,12 +135,10 @@ class _HistoricalListViewState extends ConsumerState<HistoricalListView> {
 
     return Column(
       children: [
-        // --- BARRA DE FILTROS MEJORADA ---
         Padding(
           padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
           child: Row(
             children: [
-              // --- DropdownButton personalizado para ordenar ---
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
@@ -146,8 +156,6 @@ class _HistoricalListViewState extends ConsumerState<HistoricalListView> {
                           ref.read(historicalSortProvider.notifier).state = newValue;
                         }
                       },
-                      // El 'hint' se usa para mostrar el valor seleccionado dinámicamente.
-                      // Lo envolvemos en un Builder para que el texto no se alinee mal.
                       hint: Builder(
                         builder: (context) {
                            return Text(
@@ -161,13 +169,12 @@ class _HistoricalListViewState extends ConsumerState<HistoricalListView> {
                           value: entry.key,
                           child: Text(entry.value),
                         );
-}).toList(),
+                      }).toList(),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              // --- Botón para buscar fecha ---
               ElevatedButton.icon(
                 onPressed: _showDatePickerAndScroll,
                 icon: const Icon(Icons.search, size: 20),
