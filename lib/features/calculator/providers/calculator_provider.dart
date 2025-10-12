@@ -1,12 +1,13 @@
 // lib/features/calculator/providers/calculator_provider.dart
 
 import 'package:bitasa_web/features/currency/currency_repository.dart';
+import 'package:bitasa_web/features/currency/exchange_rate.dart';
+import 'package:bitasa_web/features/currency/rate_info.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/material.dart'; // Importamos Material para usar DateUtils
 
-// --- RECUPERAMOS LA LÓGICA DE 'selectedDate' ---
-// Ahora que Sembast nos permite consultar por fecha, podemos volver a manejar este estado.
-
+// --- CalculatorState y CalculatorNotifier ---
 class CalculatorState {
   final String inputAmount;
   final String sourceCurrencyId;
@@ -40,15 +41,13 @@ class CalculatorNotifier extends StateNotifier<CalculatorState> {
     inputAmount: "1",
     sourceCurrencyId: 'USD',
     targetCurrencyId: 'VES',
-    selectedDate: DateTime.now(), // La fecha inicial es hoy por defecto.
+    selectedDate: DateTime.now(), 
   ));
 
-  // --- REINTEGRAMOS EL MÉTODO PARA ACTUALIZAR LA FECHA ---
   void updateSelectedDate(DateTime newDate) {
     state = state.copyWith(selectedDate: newDate);
   }
 
-  // Los otros métodos no cambian.
   void updateAmount(String newAmount) {
     state = state.copyWith(inputAmount: newAmount.isEmpty ? "0" : newAmount);
   }
@@ -79,24 +78,69 @@ class CalculatorNotifier extends StateNotifier<CalculatorState> {
   }
 }
 
-// --- PROVIDERS (ACTUALIZADOS PARA SEMBAST Y FECHAS) ---
+// --- PROVIDERS (CON LÓGICA DE ENRUTAMIENTO) ---
 
 final currencyRepositoryProvider = Provider((ref) => CurrencyRepository());
 
+final rateInfoProvider = StreamProvider<RateInfo>((ref) {
+  return ref.watch(currencyRepositoryProvider).getDefaultRateInfoStream();
+});
+
 final calculatorProvider = StateNotifierProvider<CalculatorNotifier, CalculatorState>((ref) {
-  return CalculatorNotifier();
+  final notifier = CalculatorNotifier();
+  ref.listen<AsyncValue<RateInfo>>(rateInfoProvider, (previous, next) {
+    next.whenData((rateInfo) {
+      // Solo actualizamos la fecha por defecto si el usuario no ha seleccionado ya una fecha diferente.
+      // Esto evita que la fecha "salte" de nuevo a la de hoy si el usuario estaba viendo un día histórico.
+      final currentState = notifier.state;
+      final isViewingDefault = DateUtils.isSameDay(currentState.selectedDate, rateInfo.defaultRate.date);
+      final isViewingFuture = rateInfo.futureRate != null && DateUtils.isSameDay(currentState.selectedDate, rateInfo.futureRate!.date);
+      if (!isViewingDefault && !isViewingFuture) {
+        // Si el usuario está en una fecha histórica, no hacemos nada.
+        return;
+      }
+      // Si estaba en la fecha por defecto o futura, actualizamos a la nueva por defecto.
+      notifier.updateSelectedDate(rateInfo.defaultRate.date);
+    });
+  });
+  return notifier;
 });
 
-// El 'ratesProvider' ahora es un StreamProvider que depende de la fecha seleccionada.
-// Si el usuario cambia la fecha en el 'calculatorProvider', Riverpod re-ejecutará
-// este provider, pidiendo al repositorio un nuevo stream de datos para la nueva fecha.
-final ratesProvider = StreamProvider<Map<String, double>>((ref) {
+// --- 'ratesProvider' REESCRITO PARA ENRUTAR ---
+final ratesProvider = StreamProvider<Map<String, double>>((ref) async* {
   final selectedDate = ref.watch(calculatorProvider.select((state) => state.selectedDate));
-  return ref.watch(currencyRepositoryProvider).getRatesForDateStream(selectedDate);
+  final rateInfoAsync = ref.watch(rateInfoProvider);
+
+  final rateInfo = rateInfoAsync.valueOrNull;
+
+  if (rateInfo == null) {
+    yield {};
+    return;
+  }
+  
+  final isDefaultDate = DateUtils.isSameDay(selectedDate, rateInfo.defaultRate.date);
+  final isFutureDate = rateInfo.futureRate != null && DateUtils.isSameDay(selectedDate, rateInfo.futureRate!.date);
+
+  if (isDefaultDate || isFutureDate) {
+    // CAMINO A: Fecha por defecto o futura.
+    final rate = isFutureDate ? rateInfo.futureRate! : rateInfo.defaultRate;
+    yield {'USD': rate.usdRate, 'EUR': rate.eurRate, 'VES': 1.0};
+  } else {
+    // CAMINO B: Fecha histórica.
+    yield* ref.watch(currencyRepositoryProvider).getRatesForDateStream(selectedDate);
+  }
 });
 
-// El 'roundedRatesProvider' funciona exactamente igual que antes.
-// Simplemente consume los datos que le entrega 'ratesProvider', sin importar cómo los obtuvo.
+// --- PROVIDERS DE AYUDA PARA LA UI ---
+final defaultRateProvider = Provider<ExchangeRate?>((ref) {
+  return ref.watch(rateInfoProvider).valueOrNull?.defaultRate;
+});
+
+final futureRateProvider = Provider<ExchangeRate?>((ref) {
+  return ref.watch(rateInfoProvider).valueOrNull?.futureRate;
+});
+
+// --- PROVIDERS DERIVADOS ---
 final roundedRatesProvider = Provider<Map<String, double>>((ref) {
   return ref.watch(ratesProvider).maybeWhen(
     data: (rates) => rates.map((key, value) => MapEntry(key, (value * 100).round() / 100)),
@@ -104,10 +148,8 @@ final roundedRatesProvider = Provider<Map<String, double>>((ref) {
   );
 });
 
-// El 'convertedAmountProvider' también funciona exactamente igual que antes.
 final convertedAmountProvider = Provider<String>((ref) {
   final numberFormatter = NumberFormat('#,##0.00', 'es_VE');
-
   final calculatorState = ref.watch(calculatorProvider);
   final Map<String, double> rates = ref.watch(roundedRatesProvider);
 

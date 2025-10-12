@@ -1,6 +1,5 @@
 // lib/features/calculator/screens/calculator_view.dart
 
-import 'package:bitasa_web/core/theme/theme_provider.dart';
 import 'package:bitasa_web/features/calculator/providers/calculator_provider.dart';
 import 'package:bitasa_web/features/currency/currency_data.dart';
 import 'package:bitasa_web/features/currency/widgets/currency_selection_sheet.dart';
@@ -9,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-// El nombre de la clase ha cambiado a CalculatorView
 class CalculatorView extends ConsumerStatefulWidget {
   const CalculatorView({super.key});
 
@@ -76,7 +74,8 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       context: context,
       initialDate: ref.read(calculatorProvider).selectedDate,
       firstDate: DateTime(2022),
-      lastDate: now,
+      // Permitimos seleccionar hasta mañana por si la tasa futura es para mañana.
+      lastDate: now.add(const Duration(days: 1)),
       locale: const Locale('es', 'ES'),
     );
 
@@ -95,18 +94,11 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       }
     });
 
-    final ratesAsyncValue = ref.watch(ratesProvider);
+    final rateInfoAsyncValue = ref.watch(rateInfoProvider);
 
-    // --- CAMBIO IMPORTANTE: Quitamos el Scaffold y el AppBar ---
-    // La vista ahora es solo el contenido que se mostrará dentro del HomeShell.
-    return ratesAsyncValue.when(
-      data: (rates) => _buildCalculatorView(),
-      loading: () {
-        if (ratesAsyncValue.hasValue) {
-          return _buildCalculatorView();
-        }
-        return const Center(child: CircularProgressIndicator());
-      },
+    return rateInfoAsyncValue.when(
+      data: (rateInfo) => _buildCalculatorView(),
+      loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) {
         return Center(
           child: Padding(
@@ -117,7 +109,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                 Text("Error al cargar las tasas.\n$error", textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: () { ref.invalidate(ratesProvider); },
+                  onPressed: () { ref.invalidate(rateInfoProvider); },
                   child: const Text('Reintentar'),
                 ),
               ],
@@ -145,9 +137,9 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisAlignment: MainAxisAlignment.center, // Centramos el contenido
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Spacer(), // Espacio flexible arriba
+          const Spacer(),
           _buildConversionCard(
             title: 'Tú envías',
             currencyCode: calculatorState.sourceCurrencyId,
@@ -181,15 +173,31 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
             isInput: false,
             onTapSelector: () => _showCurrencyPicker(context, isSource: false),
           ),
-          const Spacer(), // Espacio flexible abajo
-          _buildRateInfoSection(calculatorState.selectedDate, displayRate, calculatorState.sourceCurrencyId, calculatorState.targetCurrencyId),
+          const Spacer(),
+          _buildRateInfoSection(
+            currentDate: calculatorState.selectedDate,
+            displayRate: displayRate,
+            sourceCurrency: calculatorState.sourceCurrencyId,
+            targetCurrency: calculatorState.targetCurrencyId,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildRateInfoSection(DateTime date, double rate, String source, String target) {
-    final formattedDate = DateFormat.yMMMMd('es_ES').format(date);
+  Widget _buildRateInfoSection({
+    required DateTime currentDate,
+    required double displayRate,
+    required String sourceCurrency,
+    required String targetCurrency,
+  }) {
+    final defaultRate = ref.watch(defaultRateProvider);
+    final futureRate = ref.watch(futureRateProvider);
+    
+    final isUsingFutureRate = futureRate != null &&
+        DateUtils.isSameDay(futureRate.date, currentDate);
+
+    final formattedDate = DateFormat.yMMMMEEEEd('es_ES').format(currentDate);
     final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
 
     return Padding(
@@ -197,7 +205,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       child: Column(
         children: [
           Text(
-            '1 $source = ${rateFormatter.format(rate)} $target',
+            '1 $sourceCurrency = ${rateFormatter.format(displayRate)} $targetCurrency',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.grey, fontSize: 16),
           ),
@@ -223,6 +231,31 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+
+          // --- BOTÓN CONDICIONAL PARA TASA FUTURA ---
+          if (futureRate != null && defaultRate != null)
+            ElevatedButton(
+              onPressed: () {
+                final targetDate = isUsingFutureRate ? defaultRate.date : futureRate.date;
+                ref.read(calculatorProvider.notifier).updateSelectedDate(targetDate);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isUsingFutureRate
+                    ? Theme.of(context).colorScheme.surface
+                    : Theme.of(context).colorScheme.secondary,
+                foregroundColor: isUsingFutureRate
+                    ? Theme.of(context).textTheme.bodyLarge?.color
+                    : Theme.of(context).colorScheme.onSecondary,
+                side: isUsingFutureRate ? BorderSide(color: Theme.of(context).dividerColor) : null,
+                elevation: isUsingFutureRate ? 0 : 2,
+              ),
+              child: Text(
+                isUsingFutureRate
+                    ? 'Volver a tasa de ${DateFormat.EEEE('es_ES').format(defaultRate.date)}'
+                    : 'Usar tasa del ${DateFormat.EEEE('es_ES').format(futureRate.date)}',
+              ),
+            ),
         ],
       ),
     );
