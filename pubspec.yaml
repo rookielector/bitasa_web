@@ -26,6 +26,8 @@ dependencies:
   scrollable_positioned_list: ^0.3.8
 
   table_calendar: ^3.1.2 # Calendario
+  share_plus: ^9.0.0 # Compartir
+  qr_flutter: ^4.1.0 # QR
 
 dev_dependencies:
   flutter_test:

@@ -1,8 +1,12 @@
 // lib/features/calculator/screens/calculator_view.dart
 
+import 'package:bitasa_web/features/accounts/providers/accounts_provider.dart';
 import 'package:bitasa_web/features/calculator/providers/calculator_provider.dart';
 import 'package:bitasa_web/features/currency/currency_data.dart';
 import 'package:bitasa_web/features/currency/widgets/currency_selection_sheet.dart';
+import 'package:bitasa_web/features/payments/models/payment_data.dart';
+import 'package:bitasa_web/features/payments/providers/payments_provider.dart';
+import 'package:bitasa_web/features/payments/widgets/share_options_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,13 +78,108 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       context: context,
       initialDate: ref.read(calculatorProvider).selectedDate,
       firstDate: DateTime(2022),
-      // Permitimos seleccionar hasta mañana por si la tasa futura es para mañana.
-      lastDate: now.add(const Duration(days: 1)),
+      lastDate: now.add(const Duration(days: 5)),
       locale: const Locale('es', 'ES'),
     );
 
     if (newDate != null) {
       ref.read(calculatorProvider.notifier).updateSelectedDate(newDate);
+    }
+  }
+
+  void _saveCurrentCalculation() {
+    final calcState = ref.read(calculatorProvider);
+    final rates = ref.read(roundedRatesProvider);
+    final displayRate = (rates[calcState.targetCurrencyId] ?? 0.0) > 0
+        ? (rates[calcState.sourceCurrencyId] ?? 0.0) / (rates[calcState.targetCurrencyId] ?? 1.0)
+        : 0.0;
+    
+    final convertedAmountString = ref.read(convertedAmountProvider)
+      .replaceAll('.', '')
+      .replaceAll(',', '.');
+        
+    final newPayment = PaymentData(
+      calculationDate: DateTime.now(),
+      sourceAmount: double.tryParse(calcState.inputAmount) ?? 0.0,
+      sourceCurrencyId: calcState.sourceCurrencyId,
+      targetAmount: double.tryParse(convertedAmountString) ?? 0.0,
+      targetCurrencyId: calcState.targetCurrencyId,
+      rateDate: calcState.selectedDate,
+      exchangeRate: displayRate,
+    );
+
+    ref.read(savedPaymentsProvider.notifier).savePayment(newPayment);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Cálculo guardado'), duration: Duration(seconds: 2)),
+    );
+  }
+
+  void _sharePaymentData({PaymentData? payment}) async {
+    final accounts = ref.read(accountsProvider).valueOrNull ?? [];
+
+    if (accounts.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Configuración Requerida'),
+          content: const Text('Para compartir tus datos de pago, primero necesitas añadir una cuenta en la pestaña "Cuentas".'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Más Tarde'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Ir a Cuentas'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      final selectedOption = await showModalBottomSheet<ShareOption>(
+        context: context,
+        builder: (ctx) => const ShareOptionsSheet(),
+      );
+
+      if (selectedOption != null && mounted) {
+        final PaymentData paymentData;
+        if (payment != null) {
+          paymentData = payment;
+        } else {
+          final calcState = ref.read(calculatorProvider);
+          final rates = ref.read(roundedRatesProvider);
+          final displayRate = (rates[calcState.targetCurrencyId] ?? 0.0) > 0
+              ? (rates[calcState.sourceCurrencyId] ?? 0.0) / (rates[calcState.targetCurrencyId] ?? 1.0)
+              : 0.0;
+          final convertedAmountString = ref.read(convertedAmountProvider)
+            .replaceAll('.', '').replaceAll(',', '.');
+              
+          paymentData = PaymentData(
+            calculationDate: DateTime.now(),
+            sourceAmount: double.tryParse(calcState.inputAmount) ?? 0.0,
+            sourceCurrencyId: calcState.sourceCurrencyId,
+            targetAmount: double.tryParse(convertedAmountString) ?? 0.0,
+            targetCurrencyId: calcState.targetCurrencyId,
+            rateDate: calcState.selectedDate,
+            exchangeRate: displayRate,
+          );
+        }
+        
+        switch (selectedOption) {
+          case ShareOption.text:
+            print("Compartir como texto para el cálculo: ${paymentData.targetAmount}");
+            break;
+          case ShareOption.image:
+            print("Compartir como imagen para el cálculo: ${paymentData.targetAmount}");
+            break;
+          case ShareOption.qr:
+            print("Compartir como QR para el cálculo: ${paymentData.targetAmount}");
+            break;
+        }
+      }
     }
   }
 
@@ -97,7 +196,21 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     final rateInfoAsyncValue = ref.watch(rateInfoProvider);
 
     return rateInfoAsyncValue.when(
-      data: (rateInfo) => _buildCalculatorView(),
+      data: (rateInfo) => CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _buildCalculatorView()),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text('Cálculos Guardados Recientemente', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          _buildSavedPaymentsList(),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        ],
+      ),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) {
         return Center(
@@ -123,12 +236,9 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
   Widget _buildCalculatorView() {
     final calculatorState = ref.watch(calculatorProvider);
     final convertedAmount = ref.watch(convertedAmountProvider);
-    
     final num inputAmount = num.tryParse(calculatorState.inputAmount) ?? 0;
     final num outputAmount = num.tryParse(convertedAmount.replaceAll('.', '').replaceAll(',', '.')) ?? 0;
-    
     final rates = ref.watch(roundedRatesProvider);
-    
     final double sourceRate = rates[calculatorState.sourceCurrencyId] ?? 0.0;
     final double targetRate = rates[calculatorState.targetCurrencyId] ?? 0.0;
     final double displayRate = (targetRate > 0) ? sourceRate / targetRate : 0.0;
@@ -136,10 +246,8 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Spacer(),
+          const SizedBox(height: 24),
           _buildConversionCard(
             title: 'Tú envías',
             currencyCode: calculatorState.sourceCurrencyId,
@@ -173,7 +281,34 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
             isInput: false,
             onTapSelector: () => _showCurrencyPicker(context, isSource: false),
           ),
-          const Spacer(),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _saveCurrentCalculation,
+                  icon: const Icon(Icons.bookmark_add_outlined),
+                  label: const Text('Guardar'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: BorderSide(color: Theme.of(context).colorScheme.secondary),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _sharePaymentData,
+                  icon: const Icon(Icons.share_outlined),
+                  label: const Text('Compartir'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
           _buildRateInfoSection(
             currentDate: calculatorState.selectedDate,
             displayRate: displayRate,
@@ -182,6 +317,71 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSavedPaymentsList() {
+    final savedPaymentsAsync = ref.watch(savedPaymentsProvider);
+    final numberFormatter = NumberFormat.decimalPattern('es_VE');
+    final rateFormatter = NumberFormat("#,##0.00", "es_VE");
+
+    return savedPaymentsAsync.when(
+      data: (payments) {
+        if (payments.isEmpty) {
+          return const SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40.0, horizontal: 20.0),
+                child: Text(
+                  'Los cálculos que guardes aparecerán aquí.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return SliverList.builder(
+          itemCount: payments.length > 5 ? 5 : payments.length,
+          itemBuilder: (context, index) {
+            final payment = payments[index];
+            return Card(
+              margin: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
+              child: ListTile(
+                title: Text(
+                  '${numberFormatter.format(payment.sourceAmount)} ${payment.sourceCurrencyId} ➔ ${numberFormatter.format(payment.targetAmount)} ${payment.targetCurrencyId}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                subtitle: Text(
+                  'Tasa: 1 ${payment.sourceCurrencyId} = ${rateFormatter.format(payment.exchangeRate)} ${payment.targetCurrencyId}\n'
+                  'Guardado: ${DateFormat('dd/MM/yy HH:mm').format(payment.calculationDate)}',
+                ),
+                isThreeLine: true,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.share_outlined, color: Theme.of(context).primaryColor),
+                      tooltip: 'Compartir cálculo',
+                      onPressed: () => _sharePaymentData(payment: payment),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                      tooltip: 'Eliminar cálculo',
+                      onPressed: () {
+                        ref.read(savedPaymentsProvider.notifier).deletePayment(payment.id!);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+      loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+      error: (e, s) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
     );
   }
 
@@ -232,8 +432,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
             ),
           ),
           const SizedBox(height: 12),
-
-          // --- BOTÓN CONDICIONAL PARA TASA FUTURA ---
           if (futureRate != null && defaultRate != null)
             ElevatedButton(
               onPressed: () {

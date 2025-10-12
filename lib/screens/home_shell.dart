@@ -2,8 +2,8 @@
 
 import 'package:bitasa_web/features/calculator/screens/calculator_view.dart';
 import 'package:bitasa_web/core/theme/theme_provider.dart';
-// --- IMPORTAMOS LA NUEVA PANTALLA ---
 import 'package:bitasa_web/features/historical/screens/historical_prices_screen.dart';
+import 'package:bitasa_web/features/accounts/screens/financial_accounts_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,10 +17,10 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _selectedIndex = 0;
 
-  // --- REEMPLAZAMOS EL PLACEHOLDER ---
   static const List<Widget> _widgetOptions = <Widget>[
     CalculatorView(),
-    HistoricalPricesScreen(), // Usamos nuestra nueva pantalla
+    FinancialAccountsScreen(), 
+    HistoricalPricesScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -31,8 +31,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeProvider);
-    final isDarkMode = themeMode == ThemeMode.dark || (themeMode == ThemeMode.system && Theme.of(context).brightness == Brightness.dark);
+    // --- CAMBIO 1: OBTENEMOS EL NOTIFIER Y EL VALOR BOOLEANO ---
+    // Leemos el notifier para poder llamar a sus métodos.
+    final themeNotifier = ref.read(themeProvider.notifier);
+    // Usamos el nuevo getter 'isDarkMode' pasándole el contexto.
+    final isDarkMode = themeNotifier.isDarkMode(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -43,9 +46,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         centerTitle: true,
         actions: [
           IconButton(
+            // El icono ahora depende del booleano simple 'isDarkMode'.
             icon: Icon(isDarkMode ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
             tooltip: 'Cambiar Tema',
-            onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
+            // --- CAMBIO 2: LLAMAMOS AL NUEVO MÉTODO TOGGLE ---
+            onPressed: () => themeNotifier.toggleTheme(context),
           ),
         ],
       ),
@@ -57,6 +62,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           BottomNavigationBarItem(
             icon: Icon(Icons.calculate),
             label: 'Calculadora',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            label: 'Cuentas',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history),

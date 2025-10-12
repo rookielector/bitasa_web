@@ -2,6 +2,7 @@
 
 import 'package:sembast/sembast.dart';
 import 'package:sembast_web/sembast_web.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class DatabaseService {
   DatabaseService._internal();
@@ -19,17 +20,21 @@ class DatabaseService {
   }
 
   Future<Database> _initDatabase() async {
-    // Como nuestra PWA es solo para la web, usamos directamente el 'databaseFactoryWeb'.
-    // No necesitamos la lógica para comprobar si es móvil o no.
     final dbFactory = databaseFactoryWeb;
-            
     const dbPath = 'bitasa_sembast.db';
-    
-    // Abrimos la base de datos usando el factory de la web (que usa IndexedDB).
     final db = await dbFactory.openDatabase(dbPath);
-    
     return db;
   }
 
+  // --- AÑADIMOS LOS NUEVOS STORES ---
+
+  // Store para las tasas de cambio (ya existía).
   final ratesStore = stringMapStoreFactory.store('exchange_rates');
+
+  // Store para los cálculos guardados (Datos de Pago).
+  // Usará un 'int' como clave autoincremental.
+  final paymentsStore = intMapStoreFactory.store('saved_payments');
+
+  // Store para las cuentas financieras del usuario.
+  final accountsStore = intMapStoreFactory.store('financial_accounts');
 }
