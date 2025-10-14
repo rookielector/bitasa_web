@@ -375,7 +375,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.share_outlined, color: Theme.of(context).primaryColor),
+                      icon: Icon(Icons.share_outlined, color: Theme.of(context).colorScheme.secondary),
                       tooltip: 'Compartir cálculo',
                       onPressed: () => _sharePaymentData(paymentFromList: payment),
                     ),
