@@ -1,11 +1,14 @@
 // lib/features/calculator/screens/calculator_view.dart
 
+import 'package:bitasa_web/features/accounts/models/financial_account.dart';
 import 'package:bitasa_web/features/accounts/providers/accounts_provider.dart';
+import 'package:bitasa_web/features/accounts/widgets/account_selection_sheet.dart';
 import 'package:bitasa_web/features/calculator/providers/calculator_provider.dart';
 import 'package:bitasa_web/features/currency/currency_data.dart';
 import 'package:bitasa_web/features/currency/widgets/currency_selection_sheet.dart';
 import 'package:bitasa_web/features/payments/models/payment_data.dart';
 import 'package:bitasa_web/features/payments/providers/payments_provider.dart';
+import 'package:bitasa_web/features/payments/providers/share_provider.dart';
 import 'package:bitasa_web/features/payments/widgets/share_options_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -115,70 +118,80 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     );
   }
 
-  void _sharePaymentData({PaymentData? payment}) async {
+  void _sharePaymentData({PaymentData? paymentFromList}) async {
+    final shareService = ref.read(shareServiceProvider);
+
+    // --- FLUJO 1: COMPARTIR CÁLCULO SIMPLE (Botón principal) ---
+    if (paymentFromList == null) {
+      final calcState = ref.read(calculatorProvider);
+      final rates = ref.read(roundedRatesProvider);
+      final displayRate = (rates[calcState.targetCurrencyId] ?? 0.0) > 0
+          ? (rates[calcState.sourceCurrencyId] ?? 0.0) / (rates[calcState.targetCurrencyId] ?? 1.0)
+          : 0.0;
+      final convertedAmountString = ref.read(convertedAmountProvider).replaceAll('.', '').replaceAll(',', '.');
+          
+      final currentPaymentData = PaymentData(
+        calculationDate: DateTime.now(),
+        sourceAmount: double.tryParse(calcState.inputAmount) ?? 0.0,
+        sourceCurrencyId: calcState.sourceCurrencyId,
+        targetAmount: double.tryParse(convertedAmountString) ?? 0.0,
+        targetCurrencyId: calcState.targetCurrencyId,
+        rateDate: calcState.selectedDate,
+        exchangeRate: displayRate,
+      );
+      
+      await shareService.shareSimpleCalculationAsText(currentPaymentData);
+      return;
+    }
+
+    // --- FLUJO 2: COMPARTIR DATOS DE PAGO (Desde la lista) ---
     final accounts = ref.read(accountsProvider).valueOrNull ?? [];
-
     if (accounts.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Configuración Requerida'),
-          content: const Text('Para compartir tus datos de pago, primero necesitas añadir una cuenta en la pestaña "Cuentas".'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Más Tarde'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Ir a Cuentas'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      final selectedOption = await showModalBottomSheet<ShareOption>(
-        context: context,
-        builder: (ctx) => const ShareOptionsSheet(),
-      );
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Configuración Requerida'),
+            content: const Text('Para compartir tus datos de pago, primero necesitas añadir una cuenta en la pestaña "Cuentas".'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Más Tarde')),
+              ElevatedButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Ir a Cuentas')),
+            ],
+          ),
+        );
+      }
+      return;
+    }
 
-      if (selectedOption != null && mounted) {
-        final PaymentData paymentData;
-        if (payment != null) {
-          paymentData = payment;
-        } else {
-          final calcState = ref.read(calculatorProvider);
-          final rates = ref.read(roundedRatesProvider);
-          final displayRate = (rates[calcState.targetCurrencyId] ?? 0.0) > 0
-              ? (rates[calcState.sourceCurrencyId] ?? 0.0) / (rates[calcState.targetCurrencyId] ?? 1.0)
-              : 0.0;
-          final convertedAmountString = ref.read(convertedAmountProvider)
-            .replaceAll('.', '').replaceAll(',', '.');
-              
-          paymentData = PaymentData(
-            calculationDate: DateTime.now(),
-            sourceAmount: double.tryParse(calcState.inputAmount) ?? 0.0,
-            sourceCurrencyId: calcState.sourceCurrencyId,
-            targetAmount: double.tryParse(convertedAmountString) ?? 0.0,
-            targetCurrencyId: calcState.targetCurrencyId,
-            rateDate: calcState.selectedDate,
-            exchangeRate: displayRate,
-          );
-        }
-        
-        switch (selectedOption) {
-          case ShareOption.text:
-            print("Compartir como texto para el cálculo: ${paymentData.targetAmount}");
-            break;
-          case ShareOption.image:
-            print("Compartir como imagen para el cálculo: ${paymentData.targetAmount}");
-            break;
-          case ShareOption.qr:
-            print("Compartir como QR para el cálculo: ${paymentData.targetAmount}");
-            break;
-        }
+    FinancialAccount? accountToUse;
+
+    if (accounts.length == 1) {
+      accountToUse = accounts.first;
+    } else {
+      accountToUse = await showModalBottomSheet<FinancialAccount>(
+        context: context,
+        builder: (ctx) => AccountSelectionSheet(accounts: accounts),
+      );
+    }
+    
+    if (accountToUse == null) return;
+    
+    final selectedOption = await showModalBottomSheet<ShareOption>(
+      context: context,
+      builder: (ctx) => const ShareOptionsSheet(),
+    );
+
+    if (selectedOption != null) {
+      switch (selectedOption) {
+        case ShareOption.text:
+          await shareService.sharePaymentDataAsText(paymentFromList, accountToUse);
+          break;
+        case ShareOption.image:
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compartir como imagen (en desarrollo)')));
+          break;
+        case ShareOption.qr:
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compartir como QR (en desarrollo)')));
+          break;
       }
     }
   }
@@ -203,7 +216,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text('Cálculos Guardados Recientemente', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: Text('Cálculos para Gestión de Pagos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
@@ -322,7 +335,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
 
   Widget _buildSavedPaymentsList() {
     final savedPaymentsAsync = ref.watch(savedPaymentsProvider);
-    final numberFormatter = NumberFormat.decimalPattern('es_VE');
+    final numberFormatter = NumberFormat('#,##0.00', 'es_VE');
     final rateFormatter = NumberFormat("#,##0.00", "es_VE");
 
     return savedPaymentsAsync.when(
@@ -364,7 +377,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                     IconButton(
                       icon: Icon(Icons.share_outlined, color: Theme.of(context).primaryColor),
                       tooltip: 'Compartir cálculo',
-                      onPressed: () => _sharePaymentData(payment: payment),
+                      onPressed: () => _sharePaymentData(paymentFromList: payment),
                     ),
                     IconButton(
                       icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
