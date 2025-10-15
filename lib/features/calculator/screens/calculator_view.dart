@@ -122,9 +122,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     final bool isFromSavedList = paymentFromList != null;
     final shareService = ref.read(shareServiceProvider);
 
-    // --- FLUJO UNIFICADO ---
-
-    // 1. Crear/Obtener el PaymentData
     final PaymentData paymentData;
     if (isFromSavedList) {
       paymentData = paymentFromList;
@@ -147,23 +144,27 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       );
     }
     
-    // 2. Mostrar opciones de formato (Texto, Imagen, QR)
     final selectedOption = await showModalBottomSheet<ShareOption>(
       context: context,
       builder: (ctx) => const ShareOptionsSheet(),
     );
 
-    if (selectedOption == null) return; // El usuario cerró el sheet sin elegir.
+    if (selectedOption == null) return;
 
-    // 3. Aplicar la lógica dual (simple vs. datos de pago)
     if (isFromSavedList) {
-      // Flujo "Datos de Pago"
       final accounts = ref.read(accountsProvider).valueOrNull ?? [];
       if (accounts.isEmpty) {
         if (mounted) {
           showDialog(
-            context: context, // <-- AÑADIMOS EL CONTEXTO AQUÍ
-            builder: (ctx) => AlertDialog( /* ... */ ),
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Configuración Requerida'),
+              content: const Text('Para compartir tus datos de pago, primero necesitas añadir una cuenta en la pestaña "Cuentas".'),
+              actions: [
+                TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Más Tarde')),
+                ElevatedButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Ir a Cuentas')),
+              ],
+            ),
           );
         }
         return;
@@ -189,11 +190,11 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
           await shareService.sharePaymentDataAsImage(context, paymentData, accountToUse);
           break;
         case ShareOption.qr:
-          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compartir como QR (en desarrollo)')));
+          // --- CONECTAMOS LA LÓGICA DE QR ---
+          await shareService.sharePaymentDataAsQr(context, paymentData, accountToUse);
           break;
       }
     } else {
-      // Flujo "Cálculo Simple"
       switch (selectedOption) {
         case ShareOption.text:
           await shareService.shareSimpleCalculationAsText(paymentData);
@@ -202,12 +203,12 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
           await shareService.shareSimpleCalculationAsImage(context, paymentData);
           break;
         case ShareOption.qr:
-          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compartir como QR (en desarrollo)')));
+          // --- CONECTAMOS LA LÓGICA DE QR ---
+          await shareService.shareSimpleCalculationAsQr(context, paymentData);
           break;
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -346,71 +347,74 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     );
   }
 
-  Widget _buildSavedPaymentsList() {
-    final savedPaymentsAsync = ref.watch(savedPaymentsProvider);
-    final numberFormatter = NumberFormat('#,##0.00', 'es_VE');
-    final rateFormatter = NumberFormat("#,##0.00", "es_VE");
+Widget _buildSavedPaymentsList() {
+  final savedPaymentsAsync = ref.watch(savedPaymentsProvider);
+  final numberFormatter = NumberFormat('#,##0.00', 'es_VE');
+  final rateFormatter = NumberFormat("#,##0.00", "es_VE");
 
-    return savedPaymentsAsync.when(
-      data: (payments) {
-        if (payments.isEmpty) {
-          return const SliverToBoxAdapter(
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 40.0, horizontal: 20.0),
-                child: Text(
-                  'Los cálculos que guardes aparecerán aquí.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
+  return savedPaymentsAsync.when(
+    data: (payments) {
+      if (payments.isEmpty) {
+        return const SliverToBoxAdapter(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 40.0, horizontal: 20.0),
+              child: Text(
+                'Los cálculos que guardes aparecerán aquí.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            ),
+          ),
+        );
+      }
+
+      return SliverList.builder(
+        itemCount: payments.length > 5 ? 5 : payments.length,
+        itemBuilder: (context, index) {
+          final payment = payments[index];
+          // Formateamos la fecha de la tasa para mostrarla.
+          final formattedRateDate = DateFormat('dd/MM/yyyy').format(payment.rateDate);
+
+          return Card(
+            margin: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
+            child: ListTile(
+              title: Text(
+                '${numberFormatter.format(payment.sourceAmount)} ${payment.sourceCurrencyId} ➔ ${numberFormatter.format(payment.targetAmount)} ${payment.targetCurrencyId}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              // --- SUBTITLE ACTUALIZADO ---
+              subtitle: Text(
+                'Tasa: 1 ${payment.sourceCurrencyId} = ${rateFormatter.format(payment.exchangeRate)} ${payment.targetCurrencyId} (Tasa del $formattedRateDate)\n'
+                'Guardado: ${DateFormat('dd/MM/yy HH:mm').format(payment.calculationDate)}',
+              ),
+              isThreeLine: true,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.share_outlined, color: Theme.of(context).colorScheme.secondary),
+                    tooltip: 'Compartir cálculo',
+                    onPressed: () => _sharePaymentData(paymentFromList: payment),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                    tooltip: 'Eliminar cálculo',
+                    onPressed: () {
+                      ref.read(savedPaymentsProvider.notifier).deletePayment(payment.id!);
+                    },
+                  ),
+                ],
               ),
             ),
           );
-        }
-
-        return SliverList.builder(
-          itemCount: payments.length > 5 ? 5 : payments.length,
-          itemBuilder: (context, index) {
-            final payment = payments[index];
-            return Card(
-              margin: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
-              child: ListTile(
-                title: Text(
-                  '${numberFormatter.format(payment.sourceAmount)} ${payment.sourceCurrencyId} ➔ ${numberFormatter.format(payment.targetAmount)} ${payment.targetCurrencyId}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                subtitle: Text(
-                  'Tasa: 1 ${payment.sourceCurrencyId} = ${rateFormatter.format(payment.exchangeRate)} ${payment.targetCurrencyId}\n'
-                  'Guardado: ${DateFormat('dd/MM/yy HH:mm').format(payment.calculationDate)}',
-                ),
-                isThreeLine: true,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.share_outlined, color: Theme.of(context).colorScheme.secondary),
-                      tooltip: 'Compartir cálculo',
-                      onPressed: () => _sharePaymentData(paymentFromList: payment),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-                      tooltip: 'Eliminar cálculo',
-                      onPressed: () {
-                        ref.read(savedPaymentsProvider.notifier).deletePayment(payment.id!);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-      loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
-      error: (e, s) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
-    );
-  }
-
+        },
+      );
+    },
+    loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+    error: (e, s) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
+  );
+}
   Widget _buildRateInfoSection({
     required DateTime currentDate,
     required double displayRate,

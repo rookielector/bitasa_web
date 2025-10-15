@@ -5,6 +5,7 @@ import 'package:bitasa_web/features/accounts/models/financial_account.dart';
 import 'package:bitasa_web/features/payments/models/payment_data.dart';
 import 'package:bitasa_web/features/payments/widgets/payment_data_image_widget.dart';
 import 'package:bitasa_web/features/payments/widgets/simple_calc_image_widget.dart';
+import 'package:bitasa_web/features/payments/widgets/qr_code_view_widget.dart';
 import 'package:bitasa_web/services/widget_capture_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,14 +15,69 @@ import 'package:share_plus/share_plus.dart';
 class ShareService {
   final WidgetCaptureService _captureService = WidgetCaptureService();
 
-  // --- MÉTODOS DE "COMPARTIR COMO TEXTO" ---
+  // --- MÉTODOS PÚBLICOS PRINCIPALES ---
+
+  // TEXTO
   Future<void> shareSimpleCalculationAsText(PaymentData paymentData) async {
+    final textContent = _generateSimpleText(paymentData);
+    await _shareText(textContent);
+  }
+
+  Future<void> sharePaymentDataAsText(PaymentData paymentData, FinancialAccount account) async {
+    final textContent = _generatePaymentDataText(paymentData, account);
+    await _shareText(textContent);
+  }
+
+  // IMAGEN
+  Future<void> shareSimpleCalculationAsImage(BuildContext context, PaymentData paymentData) async {
+    await _showPreviewAndShare(
+      context: context,
+      title: 'Previsualización de Cálculo',
+      child: SimpleCalcImageWidget(paymentData: paymentData),
+      fileName: 'bitasa_calculo.png',
+    );
+  }
+
+  Future<void> sharePaymentDataAsImage(BuildContext context, PaymentData paymentData, FinancialAccount account) async {
+    await _showPreviewAndShare(
+      context: context,
+      title: 'Previsualización de Datos de Pago',
+      child: PaymentDataImageWidget(paymentData: paymentData, account: account),
+      fileName: 'bitasa_pago.png',
+    );
+  }
+
+  // CÓDIGO QR
+  Future<void> shareSimpleCalculationAsQr(BuildContext context, PaymentData paymentData) async {
+    final textContent = _generateSimpleText(paymentData) + _getFooter();
+    await _showPreviewAndShare(
+      context: context,
+      title: 'Código QR del Cálculo',
+      child: QrCodeViewWidget(data: textContent.trim()),
+      fileName: 'bitasa_qr_calculo.png',
+    );
+  }
+
+  Future<void> sharePaymentDataAsQr(BuildContext context, PaymentData paymentData, FinancialAccount account) async {
+    final textContent = _generatePaymentDataText(paymentData, account) + _getFooter();
+    await _showPreviewAndShare(
+      context: context,
+      title: 'Código QR de Datos de Pago',
+      child: QrCodeViewWidget(data: textContent.trim()),
+      fileName: 'bitasa_qr_pago.png',
+    );
+  }
+
+
+  // --- MÉTODOS PRIVADOS AUXILIARES ---
+
+  String _generateSimpleText(PaymentData paymentData) {
     final numberFormatter = NumberFormat('#,##0.00', 'es_VE');
     final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
     final formattedCalcDate = DateFormat('dd/MM/yyyy HH:mm').format(paymentData.calculationDate);
     final formattedRateDate = DateFormat('dd/MM/yyyy').format(paymentData.rateDate);
     
-    final String shareTextContent = '''
+    return '''
 *Bitasa - Cálculo de Conversión*
 ${numberFormatter.format(paymentData.sourceAmount)} ${paymentData.sourceCurrencyId} = *${numberFormatter.format(paymentData.targetAmount)} ${paymentData.targetCurrencyId}*
 ----------------------------------
@@ -29,17 +85,15 @@ ${numberFormatter.format(paymentData.sourceAmount)} ${paymentData.sourceCurrency
 *Fecha de la Tasa:* $formattedRateDate
 *Fecha del Cálculo:* $formattedCalcDate
 ''';
-    
-    await _shareText(shareTextContent);
   }
 
-  Future<void> sharePaymentDataAsText(PaymentData paymentData, FinancialAccount account) async {
+  String _generatePaymentDataText(PaymentData paymentData, FinancialAccount account) {
     final resultFormatter = NumberFormat('#,##0.00', 'es_VE');
     final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
     final formattedCalcDate = DateFormat('dd/MM/yyyy HH:mm').format(paymentData.calculationDate);
     final formattedRateDate = DateFormat('dd/MM/yyyy').format(paymentData.rateDate);
 
-    final String shareTextContent = '''
+    return '''
 *Bitasa - Datos para el Pago*
 *Entidad:* ${account.institutionName}
 *${account.type == AccountType.pagoMovil ? 'Teléfono' : 'Nro. Cuenta'}:* ${account.type == AccountType.pagoMovil ? account.phoneNumber : account.accountNumber}
@@ -50,31 +104,29 @@ ${numberFormatter.format(paymentData.sourceAmount)} ${paymentData.sourceCurrency
 *Fecha de la Tasa:* $formattedRateDate
 *Fecha del Cálculo:* $formattedCalcDate
 ''';
+  }
+  
+  String _getFooter() {
+    return '''
 
-    await _shareText(shareTextContent);
+----------------------------------
+Calcula y gestiona tus pagos con Bitasa Web.
+¡Pruébala aquí!
+https://rookielector.github.io/bitasa_web/
+''';
   }
 
-  // --- NUEVOS MÉTODOS DE "COMPARTIR COMO IMAGEN" ---
-
-  Future<void> shareSimpleCalculationAsImage(BuildContext context, PaymentData paymentData) async {
-    await _showPreviewAndShare(
-      context: context,
-      title: 'Previsualización de Cálculo',
-      child: SimpleCalcImageWidget(paymentData: paymentData),
-      fileName: 'bitasa_calculo_${paymentData.id ?? DateTime.now().millisecondsSinceEpoch}.png',
-    );
+  Future<void> _shareText(String content) async {
+    final String fullContent = content.trim() + _getFooter();
+    try {
+      await Share.share(fullContent);
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error al compartir texto: $e");
+      }
+    }
   }
 
-  Future<void> sharePaymentDataAsImage(BuildContext context, PaymentData paymentData, FinancialAccount account) async {
-    await _showPreviewAndShare(
-      context: context,
-      title: 'Previsualización de Datos de Pago',
-      child: PaymentDataImageWidget(paymentData: paymentData, account: account),
-      fileName: 'bitasa_pago_${paymentData.id ?? DateTime.now().millisecondsSinceEpoch}.png',
-    );
-  }
-
-  // --- MÉTODO PRIVADO GENÉRICO PARA PREVISUALIZAR Y CAPTURAR ---
   Future<void> _showPreviewAndShare({
     required BuildContext context,
     required String title,
@@ -82,8 +134,6 @@ ${numberFormatter.format(paymentData.sourceAmount)} ${paymentData.sourceCurrency
     required String fileName,
   }) async {
     final GlobalKey captureKey = GlobalKey();
-
-    // Usamos 'context.mounted' para evitar errores si el widget se desmonta.
     if (!context.mounted) return;
 
     await showDialog(
@@ -91,6 +141,7 @@ ${numberFormatter.format(paymentData.sourceAmount)} ${paymentData.sourceCurrency
       builder: (ctx) {
         return AlertDialog(
           title: Text(title),
+          // --- CORRECCIÓN: Contenido envuelto en SingleChildScrollView ---
           content: SingleChildScrollView(
             child: RepaintBoundary(
               key: captureKey,
@@ -129,24 +180,5 @@ ${numberFormatter.format(paymentData.sourceAmount)} ${paymentData.sourceCurrency
         );
       },
     );
-  }
-  
-  // --- MÉTODO PRIVADO AUXILIAR PARA COMPARTIR TEXTO ---
-  Future<void> _shareText(String content) async {
-    const String footer = '''
-
-----------------------------------
-Calcula y gestiona tus pagos con Bitasa Web.
-¡Pruébala aquí!
-https://rookielector.github.io/bitasa_web/
-''';
-    final String fullContent = content.trim() + footer;
-    try {
-      await Share.share(fullContent);
-    } catch (e) {
-      if (kDebugMode) {
-        print("Error al compartir texto: $e");
-      }
-    }
   }
 }
