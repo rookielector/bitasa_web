@@ -119,10 +119,16 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
   }
 
   void _sharePaymentData({PaymentData? paymentFromList}) async {
+    final bool isFromSavedList = paymentFromList != null;
     final shareService = ref.read(shareServiceProvider);
 
-    // --- FLUJO 1: COMPARTIR CÁLCULO SIMPLE (Botón principal) ---
-    if (paymentFromList == null) {
+    // --- FLUJO UNIFICADO ---
+
+    // 1. Crear/Obtener el PaymentData
+    final PaymentData paymentData;
+    if (isFromSavedList) {
+      paymentData = paymentFromList;
+    } else {
       final calcState = ref.read(calculatorProvider);
       final rates = ref.read(roundedRatesProvider);
       final displayRate = (rates[calcState.targetCurrencyId] ?? 0.0) > 0
@@ -130,7 +136,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
           : 0.0;
       final convertedAmountString = ref.read(convertedAmountProvider).replaceAll('.', '').replaceAll(',', '.');
           
-      final currentPaymentData = PaymentData(
+      paymentData = PaymentData(
         calculationDate: DateTime.now(),
         sourceAmount: double.tryParse(calcState.inputAmount) ?? 0.0,
         sourceCurrencyId: calcState.sourceCurrencyId,
@@ -139,55 +145,61 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
         rateDate: calcState.selectedDate,
         exchangeRate: displayRate,
       );
-      
-      await shareService.shareSimpleCalculationAsText(currentPaymentData);
-      return;
-    }
-
-    // --- FLUJO 2: COMPARTIR DATOS DE PAGO (Desde la lista) ---
-    final accounts = ref.read(accountsProvider).valueOrNull ?? [];
-    if (accounts.isEmpty) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Configuración Requerida'),
-            content: const Text('Para compartir tus datos de pago, primero necesitas añadir una cuenta en la pestaña "Cuentas".'),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Más Tarde')),
-              ElevatedButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Ir a Cuentas')),
-            ],
-          ),
-        );
-      }
-      return;
-    }
-
-    FinancialAccount? accountToUse;
-
-    if (accounts.length == 1) {
-      accountToUse = accounts.first;
-    } else {
-      accountToUse = await showModalBottomSheet<FinancialAccount>(
-        context: context,
-        builder: (ctx) => AccountSelectionSheet(accounts: accounts),
-      );
     }
     
-    if (accountToUse == null) return;
-    
+    // 2. Mostrar opciones de formato (Texto, Imagen, QR)
     final selectedOption = await showModalBottomSheet<ShareOption>(
       context: context,
       builder: (ctx) => const ShareOptionsSheet(),
     );
 
-    if (selectedOption != null) {
+    if (selectedOption == null) return; // El usuario cerró el sheet sin elegir.
+
+    // 3. Aplicar la lógica dual (simple vs. datos de pago)
+    if (isFromSavedList) {
+      // Flujo "Datos de Pago"
+      final accounts = ref.read(accountsProvider).valueOrNull ?? [];
+      if (accounts.isEmpty) {
+        if (mounted) {
+          showDialog(
+            context: context, // <-- AÑADIMOS EL CONTEXTO AQUÍ
+            builder: (ctx) => AlertDialog( /* ... */ ),
+          );
+        }
+        return;
+      }
+
+      FinancialAccount? accountToUse;
+      if (accounts.length == 1) {
+        accountToUse = accounts.first;
+      } else {
+        accountToUse = await showModalBottomSheet<FinancialAccount>(
+          context: context,
+          builder: (ctx) => AccountSelectionSheet(accounts: accounts),
+        );
+      }
+      
+      if (accountToUse == null) return;
+      
       switch (selectedOption) {
         case ShareOption.text:
-          await shareService.sharePaymentDataAsText(paymentFromList, accountToUse);
+          await shareService.sharePaymentDataAsText(paymentData, accountToUse);
           break;
         case ShareOption.image:
-          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compartir como imagen (en desarrollo)')));
+          await shareService.sharePaymentDataAsImage(context, paymentData, accountToUse);
+          break;
+        case ShareOption.qr:
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compartir como QR (en desarrollo)')));
+          break;
+      }
+    } else {
+      // Flujo "Cálculo Simple"
+      switch (selectedOption) {
+        case ShareOption.text:
+          await shareService.shareSimpleCalculationAsText(paymentData);
+          break;
+        case ShareOption.image:
+          await shareService.shareSimpleCalculationAsImage(context, paymentData);
           break;
         case ShareOption.qr:
           if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compartir como QR (en desarrollo)')));
@@ -195,6 +207,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

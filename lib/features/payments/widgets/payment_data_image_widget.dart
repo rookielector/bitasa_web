@@ -17,8 +17,10 @@ class PaymentDataImageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resultFormatter = NumberFormat('#.##0,00', 'es_VE');
-    final formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(paymentData.calculationDate);
+    final resultFormatter = NumberFormat('#,##0.00', 'es_VE');
+    final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
+    final formattedCalcDate = DateFormat('dd/MM/yyyy HH:mm').format(paymentData.calculationDate);
+    final formattedRateDate = DateFormat('dd/MM/yyyy').format(paymentData.rateDate);
 
     return Container(
       padding: const EdgeInsets.all(20.0),
@@ -29,7 +31,7 @@ class PaymentDataImageWidget extends StatelessWidget {
       width: 400,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch, // Estira los hijos horizontalmente
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Image.asset('assets/images/logo.webp', height: 60),
           const SizedBox(height: 16),
@@ -58,10 +60,14 @@ class PaymentDataImageWidget extends StatelessWidget {
           const Divider(color: Colors.black26),
           const SizedBox(height: 12),
           
-          _buildInfoRow('Fecha del Cálculo:', formattedDate),
+          _buildInfoRow(
+            'Tasa Aplicada:', 
+            '1 ${paymentData.sourceCurrencyId} = ${rateFormatter.format(paymentData.exchangeRate)} ${paymentData.targetCurrencyId}',
+          ),
+          _buildInfoRow('Fecha de la Tasa:', formattedRateDate),
+          _buildInfoRow('Fecha del Cálculo:', formattedCalcDate),
           const SizedBox(height: 16),
-
-          // Sección del Monto a Pagar
+          
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -96,6 +102,7 @@ class PaymentDataImageWidget extends StatelessWidget {
             ),
           ),
           
+          // --- PIE DE PÁGINA AÑADIDO ---
           const SizedBox(height: 20),
           const Divider(color: Colors.black26),
           const SizedBox(height: 12),
@@ -103,6 +110,12 @@ class PaymentDataImageWidget extends StatelessWidget {
             'Calcula y gestiona tus pagos con Bitasa Web',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: Colors.black45),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'https://rookielector.github.io/bitasa_web/',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 10, color: Colors.black38),
           ),
         ],
       ),
