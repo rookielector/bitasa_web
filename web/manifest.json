@@ -1,11 +1,11 @@
 {
-    "name": "bitasa_web",
-    "short_name": "bitasa_web",
+    "name": "Bitasa Web",
+    "short_name": "Bitasa",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1A1A2E",
+    "theme_color": "#1A1A2E",
+    "description": "Tu calculadora de divisas y criptomonedas. Rápida, confiable y ahora en la web.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
