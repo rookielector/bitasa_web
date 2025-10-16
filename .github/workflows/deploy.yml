@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy Flutter Web to GitHub Pages
 
 on:
   push:
@@ -24,8 +24,8 @@ jobs:
         run: flutter pub get
 
       - name: Build Web App
-        # --- CAMBIO CLAVE: CAMBIAMOS 'canvaskit' POR 'html' ---
-        run: flutter build web --release --web-renderer html --base-href /bitasa_web/
+        # --- CAMBIO: ELIMINAMOS EL PARÁMETRO QUE FALLA ---
+        run: flutter build web --release --base-href /bitasa_web/
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4.6.3
