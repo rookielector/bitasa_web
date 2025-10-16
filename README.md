@@ -1,3 +1,3 @@
 # bitasa_web
 
-A new Flutter project.
+La mejor manera de calcular los cambios de tus bólivares.
