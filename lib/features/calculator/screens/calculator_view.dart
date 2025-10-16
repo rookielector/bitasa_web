@@ -90,7 +90,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     }
   }
 
-  void _saveCurrentCalculation() {
+  void _saveCurrentCalculation({String? subject}) {
     final calcState = ref.read(calculatorProvider);
     final rates = ref.read(roundedRatesProvider);
     final displayRate = (rates[calcState.targetCurrencyId] ?? 0.0) > 0
@@ -109,6 +109,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       targetCurrencyId: calcState.targetCurrencyId,
       rateDate: calcState.selectedDate,
       exchangeRate: displayRate,
+      subject: subject,
     );
 
     ref.read(savedPaymentsProvider.notifier).savePayment(newPayment);
@@ -116,6 +117,75 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Cálculo guardado'), duration: Duration(seconds: 2)),
     );
+  }
+
+  Future<void> _showSaveDialog() async {
+    final subjectController = TextEditingController();
+    
+    final bool? shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Guardar Cálculo'),
+        content: TextField(
+          controller: subjectController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Motivo del Pago (Opcional)',
+            hintText: 'Ej: Factura #123, Alquiler...',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop(true);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSave == true && mounted) {
+      _saveCurrentCalculation(subject: subjectController.text.trim());
+    }
+  }
+
+  Future<void> _showEditSubjectDialog(PaymentData payment) async {
+    final subjectController = TextEditingController(text: payment.subject ?? '');
+
+    final String? newSubject = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Editar Motivo'),
+        content: TextField(
+          controller: subjectController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Motivo del Pago (Opcional)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop(subjectController.text.trim());
+            },
+            child: const Text('Actualizar'),
+          ),
+        ],
+      ),
+    );
+
+    if (newSubject != null && payment.id != null) {
+      ref.read(savedPaymentsProvider.notifier).updatePaymentSubject(payment.id!, newSubject);
+    }
   }
 
   void _sharePaymentData({PaymentData? paymentFromList}) async {
@@ -190,7 +260,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
           await shareService.sharePaymentDataAsImage(context, paymentData, accountToUse);
           break;
         case ShareOption.qr:
-          // --- CONECTAMOS LA LÓGICA DE QR ---
           await shareService.sharePaymentDataAsQr(context, paymentData, accountToUse);
           break;
       }
@@ -203,7 +272,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
           await shareService.shareSimpleCalculationAsImage(context, paymentData);
           break;
         case ShareOption.qr:
-          // --- CONECTAMOS LA LÓGICA DE QR ---
           await shareService.shareSimpleCalculationAsQr(context, paymentData);
           break;
       }
@@ -313,7 +381,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _saveCurrentCalculation,
+                  onPressed: _showSaveDialog,
                   icon: const Icon(Icons.bookmark_add_outlined),
                   label: const Text('Guardar'),
                   style: OutlinedButton.styleFrom(
@@ -325,7 +393,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _sharePaymentData,
+                  onPressed: () => _sharePaymentData(),
                   icon: const Icon(Icons.share_outlined),
                   label: const Text('Compartir'),
                   style: ElevatedButton.styleFrom(
@@ -347,74 +415,96 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     );
   }
 
-Widget _buildSavedPaymentsList() {
-  final savedPaymentsAsync = ref.watch(savedPaymentsProvider);
-  final numberFormatter = NumberFormat('#,##0.00', 'es_VE');
-  final rateFormatter = NumberFormat("#,##0.00", "es_VE");
+  Widget _buildSavedPaymentsList() {
+    final savedPaymentsAsync = ref.watch(savedPaymentsProvider);
+    final numberFormatter = NumberFormat('#,##0.00', 'es_VE');
+    final rateFormatter = NumberFormat("#,##0.00", "es_VE");
 
-  return savedPaymentsAsync.when(
-    data: (payments) {
-      if (payments.isEmpty) {
-        return const SliverToBoxAdapter(
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 40.0, horizontal: 20.0),
-              child: Text(
-                'Los cálculos que guardes aparecerán aquí.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            ),
-          ),
-        );
-      }
-
-      return SliverList.builder(
-        itemCount: payments.length > 5 ? 5 : payments.length,
-        itemBuilder: (context, index) {
-          final payment = payments[index];
-          // Formateamos la fecha de la tasa para mostrarla.
-          final formattedRateDate = DateFormat('dd/MM/yyyy').format(payment.rateDate);
-
-          return Card(
-            margin: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
-            child: ListTile(
-              title: Text(
-                '${numberFormatter.format(payment.sourceAmount)} ${payment.sourceCurrencyId} ➔ ${numberFormatter.format(payment.targetAmount)} ${payment.targetCurrencyId}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              // --- SUBTITLE ACTUALIZADO ---
-              subtitle: Text(
-                'Tasa: 1 ${payment.sourceCurrencyId} = ${rateFormatter.format(payment.exchangeRate)} ${payment.targetCurrencyId} (Tasa del $formattedRateDate)\n'
-                'Guardado: ${DateFormat('dd/MM/yy HH:mm').format(payment.calculationDate)}',
-              ),
-              isThreeLine: true,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.share_outlined, color: Theme.of(context).colorScheme.secondary),
-                    tooltip: 'Compartir cálculo',
-                    onPressed: () => _sharePaymentData(paymentFromList: payment),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-                    tooltip: 'Eliminar cálculo',
-                    onPressed: () {
-                      ref.read(savedPaymentsProvider.notifier).deletePayment(payment.id!);
-                    },
-                  ),
-                ],
+    return savedPaymentsAsync.when(
+      data: (payments) {
+        if (payments.isEmpty) {
+          return const SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40.0, horizontal: 20.0),
+                child: Text(
+                  'Los cálculos que guardes aparecerán aquí.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
               ),
             ),
           );
-        },
-      );
-    },
-    loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
-    error: (e, s) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
-  );
-}
+        }
+
+        return SliverList.builder(
+          itemCount: payments.length > 5 ? 5 : payments.length,
+          itemBuilder: (context, index) {
+            final payment = payments[index];
+            final formattedRateDate = DateFormat('dd/MM/yyyy').format(payment.rateDate);
+
+            return Card(
+              margin: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
+              child: ListTile(
+                title: Text(
+                  '${numberFormatter.format(payment.sourceAmount)} ${payment.sourceCurrencyId} ➔ ${numberFormatter.format(payment.targetAmount)} ${payment.targetCurrencyId}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (payment.subject != null && payment.subject!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4.0),
+                        child: Text(
+                          payment.subject!,
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.secondary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    Text(
+                      'Tasa: 1 ${payment.sourceCurrencyId} = ${rateFormatter.format(payment.exchangeRate)} ${payment.targetCurrencyId} (Tasa del $formattedRateDate)',
+                    ),
+                    Text(
+                      'Guardado: ${DateFormat('dd/MM/yy HH:mm').format(payment.calculationDate)}',
+                    ),
+                  ],
+                ),
+                isThreeLine: (payment.subject != null && payment.subject!.isNotEmpty) ? true : null,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      tooltip: 'Editar Motivo',
+                      onPressed: () {
+                        _showEditSubjectDialog(payment);
+                      },
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.share_outlined, color: Theme.of(context).colorScheme.secondary),
+                      tooltip: 'Compartir cálculo',
+                      onPressed: () => _sharePaymentData(paymentFromList: payment),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                      tooltip: 'Eliminar cálculo',
+                      onPressed: () {
+                        ref.read(savedPaymentsProvider.notifier).deletePayment(payment.id!);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+      loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+      error: (e, s) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
+    );
+  }
+
   Widget _buildRateInfoSection({
     required DateTime currentDate,
     required double displayRate,
@@ -489,6 +579,7 @@ Widget _buildSavedPaymentsList() {
     );
   }
 
+  // --- WIDGET _buildConversionCard REESTRUCTURADO ---
   Widget _buildConversionCard({
     required String title,
     required String currencyCode,
@@ -503,7 +594,8 @@ Widget _buildSavedPaymentsList() {
 
     return Container(
       padding: const EdgeInsets.all(20.0),
-      height: 130,
+      // Mantenemos una altura mínima para consistencia visual.
+      constraints: const BoxConstraints(minHeight: 130),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20.0),
@@ -511,6 +603,7 @@ Widget _buildSavedPaymentsList() {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // --- Columna Izquierda (Selector de Moneda) ---
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -538,45 +631,50 @@ Widget _buildSavedPaymentsList() {
               ),
             ],
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.45,
-                child: isInput
-                    ? TextField(
-                        controller: amountController,
-                        focusNode: _amountFocusNode,
-                        textAlign: TextAlign.end,
-                        style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*[\.,]?\d*'))],
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: '0,00',
-                          hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4)),
-                        ),
-                        onChanged: (value) {
-                          ref.read(calculatorProvider.notifier).updateAmount(value.replaceAll(',', '.'));
-                        },
-                      )
-                    : FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          amount ?? '0,00',
-                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                          maxLines: 1,
-                        ),
-                      ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                currencyName,
-                style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.7), fontSize: 14),
-              ),
-            ],
+          
+          const SizedBox(width: 16), // Espacio entre las dos columnas
+
+          // --- Columna Derecha (Monto) - Ahora es flexible ---
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isInput)
+                  TextField(
+                    controller: amountController,
+                    focusNode: _amountFocusNode,
+                    textAlign: TextAlign.end,
+                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*[\.,]?\d*'))],
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      hintText: '0,00',
+                      hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                    ),
+                    onChanged: (value) {
+                      ref.read(calculatorProvider.notifier).updateAmount(value.replaceAll(',', '.'));
+                    },
+                  )
+                else
+                  // Usamos FittedBox para que el texto se achique si es demasiado largo
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      amount ?? '0,00',
+                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                      maxLines: 1,
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                Text(
+                  currencyName,
+                  style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.7), fontSize: 14),
+                ),
+              ],
+            ),
           ),
         ],
       ),

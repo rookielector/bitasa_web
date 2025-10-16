@@ -93,9 +93,14 @@ ${numberFormatter.format(paymentData.sourceAmount)} ${paymentData.sourceCurrency
     final formattedCalcDate = DateFormat('dd/MM/yyyy HH:mm').format(paymentData.calculationDate);
     final formattedRateDate = DateFormat('dd/MM/yyyy').format(paymentData.rateDate);
 
+    String subjectLine = '';
+    if (paymentData.subject != null && paymentData.subject!.isNotEmpty) {
+      subjectLine = '*Motivo:* ${paymentData.subject}\n';
+    }
+
     return '''
 *Bitasa - Datos para el Pago*
-*Entidad:* ${account.institutionName}
+${subjectLine}*Entidad:* ${account.institutionName}
 *${account.type == AccountType.pagoMovil ? 'Teléfono' : 'Nro. Cuenta'}:* ${account.type == AccountType.pagoMovil ? account.phoneNumber : account.accountNumber}
 *Cédula/RIF:* ${account.idCard}
 *Monto a Pagar:* *${resultFormatter.format(paymentData.targetAmount)} ${paymentData.targetCurrencyId}*
@@ -136,7 +141,6 @@ https://rookielector.github.io/bitasa_web/
     final GlobalKey captureKey = GlobalKey();
     if (!context.mounted) return;
 
-    // La lógica de 'share' ahora vivirá dentro del callback del botón.
     await showDialog(
       context: context,
       builder: (ctx) {
@@ -155,39 +159,21 @@ https://rookielector.github.io/bitasa_web/
             ),
             ElevatedButton(
               onPressed: () async {
-                // --- NUEVA LÓGICA DE CAPTURA Y COMPARTIR ---
-                
-                // 1. Capturamos el widget.
                 final Uint8List? imageBytes = await _captureService.captureWidget(captureKey);
                 
-                // 2. Si la captura falla, mostramos un error y nos quedamos en el diálogo.
-                if (imageBytes == null) {
-                  if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('Error al generar la imagen. Intenta de nuevo.')),
-                    );
-                  }
-                  return;
-                }
-                
-                // 3. Si la captura tiene éxito, cerramos el diálogo.
                 if (ctx.mounted) Navigator.of(ctx).pop();
 
-                // 4. Creamos el XFile.
-                final file = XFile.fromData(
-                  imageBytes,
-                  name: fileName,
-                  mimeType: 'image/png',
-                );
-
-                // 5. Intentamos compartir el archivo.
-                try {
+                if (imageBytes != null) {
+                  final file = XFile.fromData(
+                    imageBytes,
+                    name: fileName,
+                    mimeType: 'image/png',
+                  );
                   await Share.shareXFiles([file], text: 'Datos de pago de Bitasa');
-                } catch (e) {
-                  // Si la API de compartir falla, mostramos un error.
+                } else {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('No se pudo abrir el diálogo de compartir: $e')),
+                      const SnackBar(content: Text('Error al generar la imagen.')),
                     );
                   }
                 }

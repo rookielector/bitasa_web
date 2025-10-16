@@ -19,12 +19,11 @@ class PaymentsNotifier extends AsyncNotifier<List<PaymentData>> {
   // --- MÉTODOS DE ACCIÓN ---
 
   Future<void> savePayment(PaymentData payment) async {
-    // No ponemos el estado en carga aquí para que la UI no parpadee.
-    // Simplemente ejecutamos la acción y refrescamos la lista.
+    // Ejecutamos la acción de guardado.
     await AsyncValue.guard(() async {
       await ref.read(paymentsRepositoryProvider).savePayment(payment);
     });
-    // Invalidamos el provider para forzar una recarga de la lista.
+    // Invalidamos el provider para forzar una recarga de la lista y mostrar el nuevo ítem.
     ref.invalidateSelf();
   }
 
@@ -32,6 +31,15 @@ class PaymentsNotifier extends AsyncNotifier<List<PaymentData>> {
     await AsyncValue.guard(() async {
       await ref.read(paymentsRepositoryProvider).deletePayment(id);
     });
+    ref.invalidateSelf();
+  }
+
+  // --- NUEVO MÉTODO PARA ACTUALIZAR EL MOTIVO ---
+  Future<void> updatePaymentSubject(int id, String newSubject) async {
+    await AsyncValue.guard(() async {
+      await ref.read(paymentsRepositoryProvider).updatePaymentSubject(id, newSubject);
+    });
+    // Forzamos la recarga de la lista para que la UI refleje el cambio inmediatamente.
     ref.invalidateSelf();
   }
 }

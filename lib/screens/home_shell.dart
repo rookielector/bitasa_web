@@ -31,10 +31,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    // --- CAMBIO 1: OBTENEMOS EL NOTIFIER Y EL VALOR BOOLEANO ---
-    // Leemos el notifier para poder llamar a sus métodos.
+    // --- LÍNEAS CORREGIDAS ---
+    // Primero, leemos el notifier para tener acceso a sus métodos.
     final themeNotifier = ref.read(themeProvider.notifier);
-    // Usamos el nuevo getter 'isDarkMode' pasándole el contexto.
+    // Luego, usamos el notifier para obtener el valor booleano.
     final isDarkMode = themeNotifier.isDarkMode(context);
 
     return Scaffold(
@@ -46,16 +46,19 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         centerTitle: true,
         actions: [
           IconButton(
-            // El icono ahora depende del booleano simple 'isDarkMode'.
             icon: Icon(isDarkMode ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
             tooltip: 'Cambiar Tema',
-            // --- CAMBIO 2: LLAMAMOS AL NUEVO MÉTODO TOGGLE ---
             onPressed: () => themeNotifier.toggleTheme(context),
           ),
         ],
       ),
-      body: SafeArea(
-        child: _widgetOptions.elementAt(_selectedIndex),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: SafeArea(
+            child: _widgetOptions.elementAt(_selectedIndex),
+          ),
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[

@@ -49,6 +49,11 @@ class PaymentDataImageWidget extends StatelessWidget {
           const Divider(color: Colors.black26),
           const SizedBox(height: 16),
           
+          if (paymentData.subject != null && paymentData.subject!.isNotEmpty) ...[
+            _buildInfoRow('Motivo:', paymentData.subject!),
+            const SizedBox(height: 12),
+          ],
+          
           _buildInfoRow('Entidad:', account.institutionName),
           _buildInfoRow(
             account.type == AccountType.pagoMovil ? 'Teléfono:' : 'Nro. Cuenta:',
@@ -102,7 +107,6 @@ class PaymentDataImageWidget extends StatelessWidget {
             ),
           ),
           
-          // --- PIE DE PÁGINA AÑADIDO ---
           const SizedBox(height: 20),
           const Divider(color: Colors.black26),
           const SizedBox(height: 12),

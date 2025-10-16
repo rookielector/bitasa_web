@@ -12,6 +12,8 @@ class PaymentsRepository {
     return _dbService.paymentsStore;
   }
 
+  // --- MÉTODOS CRUD ---
+
   Future<void> savePayment(PaymentData payment) async {
     final store = await _store;
     final db = await _dbService.database;
@@ -26,8 +28,8 @@ class PaymentsRepository {
     final records = await store.find(db, finder: finder);
 
     return records.map((snapshot) {
-      // --- CAMBIO: Pasamos el ID al factory ---
-      return PaymentData.fromMap(snapshot.value, snapshot.key);
+      final payment = PaymentData.fromMap(snapshot.value, snapshot.key);
+      return payment; // El copyWith ya no es necesario aquí
     }).toList();
   }
   
@@ -35,5 +37,14 @@ class PaymentsRepository {
     final store = await _store;
     final db = await _dbService.database;
     await store.record(id).delete(db);
+  }
+
+  // --- NUEVO MÉTODO PARA ACTUALIZAR EL MOTIVO ---
+  Future<void> updatePaymentSubject(int id, String newSubject) async {
+    final store = await _store;
+    final db = await _dbService.database;
+
+    // Usamos el método 'update' para modificar solo el campo 'subject' de un registro existente.
+    await store.record(id).update(db, {'subject': newSubject});
   }
 }
