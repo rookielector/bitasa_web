@@ -136,12 +136,12 @@ https://rookielector.github.io/bitasa_web/
     final GlobalKey captureKey = GlobalKey();
     if (!context.mounted) return;
 
+    // La lógica de 'share' ahora vivirá dentro del callback del botón.
     await showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
           title: Text(title),
-          // --- CORRECCIÓN: Contenido envuelto en SingleChildScrollView ---
           content: SingleChildScrollView(
             child: RepaintBoundary(
               key: captureKey,
@@ -155,21 +155,39 @@ https://rookielector.github.io/bitasa_web/
             ),
             ElevatedButton(
               onPressed: () async {
+                // --- NUEVA LÓGICA DE CAPTURA Y COMPARTIR ---
+                
+                // 1. Capturamos el widget.
                 final Uint8List? imageBytes = await _captureService.captureWidget(captureKey);
                 
+                // 2. Si la captura falla, mostramos un error y nos quedamos en el diálogo.
+                if (imageBytes == null) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('Error al generar la imagen. Intenta de nuevo.')),
+                    );
+                  }
+                  return;
+                }
+                
+                // 3. Si la captura tiene éxito, cerramos el diálogo.
                 if (ctx.mounted) Navigator.of(ctx).pop();
 
-                if (imageBytes != null) {
-                  final file = XFile.fromData(
-                    imageBytes,
-                    name: fileName,
-                    mimeType: 'image/png',
-                  );
+                // 4. Creamos el XFile.
+                final file = XFile.fromData(
+                  imageBytes,
+                  name: fileName,
+                  mimeType: 'image/png',
+                );
+
+                // 5. Intentamos compartir el archivo.
+                try {
                   await Share.shareXFiles([file], text: 'Datos de pago de Bitasa');
-                } else {
+                } catch (e) {
+                  // Si la API de compartir falla, mostramos un error.
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Error al generar la imagen.')),
+                      SnackBar(content: Text('No se pudo abrir el diálogo de compartir: $e')),
                     );
                   }
                 }
