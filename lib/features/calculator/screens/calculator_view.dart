@@ -470,30 +470,42 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                     ),
                   ],
                 ),
-                isThreeLine: (payment.subject != null && payment.subject!.isNotEmpty) ? true : null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 20),
-                      tooltip: 'Editar Motivo',
-                      onPressed: () {
-                        _showEditSubjectDialog(payment);
-                      },
+                isThreeLine: (payment.subject != null && payment.subject!.isNotEmpty),
+                trailing: PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showEditSubjectDialog(payment);
+                    } else if (value == 'share') {
+                      _sharePaymentData(paymentFromList: payment);
+                    } else if (value == 'delete') {
+                      ref.read(savedPaymentsProvider.notifier).deletePayment(payment.id!);
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(
+                      value: 'edit',
+                      child: ListTile(
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('Editar Motivo'),
+                      ),
                     ),
-                    IconButton(
-                      icon: Icon(Icons.share_outlined, color: Theme.of(context).colorScheme.secondary),
-                      tooltip: 'Compartir cálculo',
-                      onPressed: () => _sharePaymentData(paymentFromList: payment),
+                    PopupMenuItem<String>(
+                      value: 'share',
+                      child: ListTile(
+                        leading: Icon(Icons.share_outlined, color: Theme.of(context).colorScheme.secondary),
+                        title: Text('Compartir'),
+                      ),
                     ),
-                    IconButton(
-                      icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-                      tooltip: 'Eliminar cálculo',
-                      onPressed: () {
-                        ref.read(savedPaymentsProvider.notifier).deletePayment(payment.id!);
-                      },
+                    PopupMenuItem<String>(
+                      value: 'delete',
+                      child: ListTile(
+                        leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                        title: Text('Eliminar'),
+                      ),
                     ),
                   ],
+                  icon: const Icon(Icons.more_vert),
+                  tooltip: 'Más opciones',
                 ),
               ),
             );
@@ -579,7 +591,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     );
   }
 
-  // --- WIDGET _buildConversionCard REESTRUCTURADO ---
   Widget _buildConversionCard({
     required String title,
     required String currencyCode,
@@ -594,8 +605,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
 
     return Container(
       padding: const EdgeInsets.all(20.0),
-      // Mantenemos una altura mínima para consistencia visual.
-      constraints: const BoxConstraints(minHeight: 130),
+      height: 130,
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20.0),
@@ -603,7 +613,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // --- Columna Izquierda (Selector de Moneda) ---
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -631,50 +640,45 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
               ),
             ],
           ),
-          
-          const SizedBox(width: 16), // Espacio entre las dos columnas
-
-          // --- Columna Derecha (Monto) - Ahora es flexible ---
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isInput)
-                  TextField(
-                    controller: amountController,
-                    focusNode: _amountFocusNode,
-                    textAlign: TextAlign.end,
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*[\.,]?\d*'))],
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: '0,00',
-                      hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4)),
-                    ),
-                    onChanged: (value) {
-                      ref.read(calculatorProvider.notifier).updateAmount(value.replaceAll(',', '.'));
-                    },
-                  )
-                else
-                  // Usamos FittedBox para que el texto se achique si es demasiado largo
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      amount ?? '0,00',
-                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                      maxLines: 1,
-                    ),
-                  ),
-                const SizedBox(height: 4),
-                Text(
-                  currencyName,
-                  style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.7), fontSize: 14),
-                ),
-              ],
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.45,
+                child: isInput
+                    ? TextField(
+                        controller: amountController,
+                        focusNode: _amountFocusNode,
+                        textAlign: TextAlign.end,
+                        style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*[\.,]?\d*'))],
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: '0,00',
+                          hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                        ),
+                        onChanged: (value) {
+                          ref.read(calculatorProvider.notifier).updateAmount(value.replaceAll(',', '.'));
+                        },
+                      )
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          amount ?? '0,00',
+                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                          maxLines: 1,
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                currencyName,
+                style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.7), fontSize: 14),
+              ),
+            ],
           ),
         ],
       ),
