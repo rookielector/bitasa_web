@@ -1,11 +1,11 @@
-name: Deploy Flutter Web to GitHub Pages
+name: Deploy to Firebase Hosting
 
 on:
   push:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read # Damos permiso de lectura del contenido
 
 jobs:
   build-and-deploy:
@@ -24,11 +24,13 @@ jobs:
         run: flutter pub get
 
       - name: Build Web App
-        # --- CAMBIO: ELIMINAMOS EL PARÁMETRO QUE FALLA ---
-        run: flutter build web --release --base-href /bitasa_web/
+        # Nos aseguramos de que el build use la ruta base correcta para Firebase
+        run: flutter build web --release --base-href /
 
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4.6.3
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          branch: gh-pages
-          folder: build/web
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_BITASA_V1 }}'
+          channelId: live
+          projectId: 'bitasa-v1'
