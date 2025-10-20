@@ -591,7 +591,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     );
   }
 
-  // --- WIDGET _buildConversionCard CORREGIDO ---
+  // --- WIDGET _buildConversionCard CORREGIDO (NUEVO ENFOQUE) ---
   Widget _buildConversionCard({
     required String title,
     required String currencyCode,
@@ -611,87 +611,91 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20.0),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center, // Alineamos verticalmente al centro
-        children: [
-          // --- Columna Izquierda (Selector de Moneda) - Sin cambios ---
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+      // --- Usamos LayoutBuilder para obtener el ancho real disponible ---
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: TextStyle(color: theme.textTheme.bodySmall?.color, fontSize: 16)),
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: onTapSelector,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 12,
-                        backgroundColor: Colors.white24,
-                        child: Icon(currency.icon, size: 14, color: Colors.white),
+              // --- Columna Izquierda (Selector de Moneda) ---
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(title, style: TextStyle(color: theme.textTheme.bodySmall?.color, fontSize: 16)),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: onTapSelector,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.white24,
+                            child: Icon(currency.icon, size: 14, color: Colors.white),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(currencyCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+                          const Icon(Icons.arrow_drop_down, color: Colors.white),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(currencyCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
-                      const Icon(Icons.arrow_drop_down, color: Colors.white),
-                    ],
+                    ),
                   ),
+                ],
+              ),
+              
+              // --- Columna Derecha (Monto) ---
+              // Usamos un SizedBox con un ancho calculado basado en las restricciones del LayoutBuilder
+              SizedBox(
+                // Le damos un poco más del 50% del espacio disponible en la tarjeta.
+                width: constraints.maxWidth * 0.55,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (isInput)
+                      TextField(
+                        controller: amountController,
+                        focusNode: _amountFocusNode,
+                        textAlign: TextAlign.end,
+                        style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*[\.,]?\d*'))],
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                          hintText: '0,00',
+                          hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                        ),
+                        onChanged: (value) {
+                          ref.read(calculatorProvider.notifier).updateAmount(value.replaceAll(',', '.'));
+                        },
+                      )
+                    else
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          amount ?? '0,00',
+                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                          maxLines: 1,
+                        ),
+                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      currencyName,
+                      style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.7), fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
             ],
-          ),
-          
-          const SizedBox(width: 16),
-
-          // --- Columna Derecha (Monto) - Ahora es flexible HORIZONTALMENTE ---
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // YA NO USAMOS 'Flexible' aquí.
-                if (isInput)
-                  TextField(
-                    controller: amountController,
-                    focusNode: _amountFocusNode,
-                    textAlign: TextAlign.end,
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*[\.,]?\d*'))],
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                      hintText: '0,00',
-                      hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4)),
-                    ),
-                    onChanged: (value) {
-                      ref.read(calculatorProvider.notifier).updateAmount(value.replaceAll(',', '.'));
-                    },
-                  )
-                else
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      amount ?? '0,00',
-                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                      maxLines: 1,
-                    ),
-                  ),
-                const SizedBox(height: 4),
-                // YA NO USAMOS 'Flexible' aquí.
-                Text(
-                  currencyName,
-                  style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.7), fontSize: 14),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
