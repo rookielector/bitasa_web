@@ -78,7 +78,7 @@ class SimpleCalcImageWidget extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'https://rookielector.github.io/bitasa_web/',
+            'https://bitasa-v1.web.app/',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 10, color: Colors.black38),
           ),

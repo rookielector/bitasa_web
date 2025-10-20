@@ -591,6 +591,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     );
   }
 
+  // --- WIDGET _buildConversionCard CORREGIDO ---
   Widget _buildConversionCard({
     required String title,
     required String currencyCode,
@@ -605,14 +606,15 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
 
     return Container(
       padding: const EdgeInsets.all(20.0),
-      height: 130,
+      constraints: const BoxConstraints(minHeight: 130),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20.0),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center, // Alineamos verticalmente al centro
         children: [
+          // --- Columna Izquierda (Selector de Moneda) - Sin cambios ---
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -640,45 +642,54 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
               ),
             ],
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.45,
-                child: isInput
-                    ? TextField(
-                        controller: amountController,
-                        focusNode: _amountFocusNode,
-                        textAlign: TextAlign.end,
-                        style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*[\.,]?\d*'))],
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: '0,00',
-                          hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4)),
-                        ),
-                        onChanged: (value) {
-                          ref.read(calculatorProvider.notifier).updateAmount(value.replaceAll(',', '.'));
-                        },
-                      )
-                    : FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          amount ?? '0,00',
-                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                          maxLines: 1,
-                        ),
-                      ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                currencyName,
-                style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.7), fontSize: 14),
-              ),
-            ],
+          
+          const SizedBox(width: 16),
+
+          // --- Columna Derecha (Monto) - Ahora es flexible HORIZONTALMENTE ---
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // YA NO USAMOS 'Flexible' aquí.
+                if (isInput)
+                  TextField(
+                    controller: amountController,
+                    focusNode: _amountFocusNode,
+                    textAlign: TextAlign.end,
+                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*[\.,]?\d*'))],
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      hintText: '0,00',
+                      hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                    ),
+                    onChanged: (value) {
+                      ref.read(calculatorProvider.notifier).updateAmount(value.replaceAll(',', '.'));
+                    },
+                  )
+                else
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      amount ?? '0,00',
+                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                      maxLines: 1,
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                // YA NO USAMOS 'Flexible' aquí.
+                Text(
+                  currencyName,
+                  style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.7), fontSize: 14),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),

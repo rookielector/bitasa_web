@@ -117,7 +117,7 @@ ${subjectLine}*Entidad:* ${account.institutionName}
 ----------------------------------
 Calcula y gestiona tus pagos con Bitasa Web.
 ¡Pruébala aquí!
-https://rookielector.github.io/bitasa_web/
+https://bitasa-v1.web.app/
 ''';
   }
 
