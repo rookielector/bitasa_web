@@ -10,10 +10,12 @@ import 'package:bitasa_web/features/payments/models/payment_data.dart';
 import 'package:bitasa_web/features/payments/providers/payments_provider.dart';
 import 'package:bitasa_web/features/payments/providers/share_provider.dart';
 import 'package:bitasa_web/features/payments/widgets/share_options_sheet.dart';
+import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 class CalculatorView extends ConsumerStatefulWidget {
   const CalculatorView({super.key});
@@ -39,6 +41,25 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
           baseOffset: 0,
           extentOffset: _amountController.text.length,
         );
+      }
+    });
+
+    _startTutorialIfFirstTime();
+  }
+
+  Future<void> _startTutorialIfFirstTime() async {
+    // Esperamos a que el widget se construya.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Usamos 'ref.read' porque estamos en un método que no se reconstruye.
+      final hasSeenTutorial = await ref.read(tutorialSeenProvider.future);
+
+      if (!hasSeenTutorial && mounted) {
+        final keys = ref.read(tutorialKeysProvider);
+        final tutorialService = ref.read(tutorialServiceProvider);
+        
+        ShowCaseWidget.of(context).startShowCase(keys.keys);
+        
+        await tutorialService.markTutorialAsSeen();
       }
     });
   }
@@ -135,16 +156,8 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop(true);
-            },
-            child: const Text('Guardar'),
-          ),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
+          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Guardar')),
         ],
       ),
     );
@@ -164,21 +177,11 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
         content: TextField(
           controller: subjectController,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Motivo del Pago (Opcional)',
-          ),
+          decoration: const InputDecoration(labelText: 'Motivo del Pago (Opcional)'),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop(subjectController.text.trim());
-            },
-            child: const Text('Actualizar'),
-          ),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancelar')),
+          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(subjectController.text.trim()), child: const Text('Actualizar')),
         ],
       ),
     );
@@ -291,30 +294,16 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     final rateInfoAsyncValue = ref.watch(rateInfoProvider);
 
     return rateInfoAsyncValue.when(
-      data: (rateInfo) => LayoutBuilder(
-        builder: (context, constraints) {
-          final horizontalPadding = constraints.maxWidth > 800
-              ? (constraints.maxWidth - 800) / 2
-              : 16.0;
-
-          return ListView(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-            children: [
-              _buildCalculatorContent(),
-              const SizedBox(height: 24),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text('Cálculos para Gestión de Pagos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: _buildSavedPaymentsList(),
-              ),
-              const SizedBox(height: 24),
-            ],
-          );
-        },
+      data: (rateInfo) => ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        children: [
+          _buildCalculatorContent(),
+          const SizedBox(height: 24),
+          const Text('Cálculos para Gestión de Pagos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          _buildSavedPaymentsList(),
+          const SizedBox(height: 24),
+        ],
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) {
@@ -339,6 +328,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
   }
 
   Widget _buildCalculatorContent() {
+    final tutorialKeys = ref.watch(tutorialKeysProvider);
     final calculatorState = ref.watch(calculatorProvider);
     final convertedAmount = ref.watch(convertedAmountProvider);
     final num inputAmount = num.tryParse(calculatorState.inputAmount) ?? 0;
@@ -348,12 +338,14 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     final double targetRate = rates[calculatorState.targetCurrencyId] ?? 0.0;
     final double displayRate = (targetRate > 0) ? sourceRate / targetRate : 0.0;
     
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        children: [
-          const SizedBox(height: 24),
-          _buildConversionCard(
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        Showcase(
+          key: tutorialKeys.sourceCurrency,
+          title: 'Moneda de Origen',
+          description: 'Toca aquí para seleccionar la moneda que quieres convertir.',
+          child: _buildConversionCard(
             title: 'Tú envías',
             currencyCode: calculatorState.sourceCurrencyId,
             currencyName: getCurrencyName(calculatorState.sourceCurrencyId, inputAmount),
@@ -361,8 +353,13 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
             isInput: true,
             onTapSelector: () => _showCurrencyPicker(context, isSource: true),
           ),
-          const SizedBox(height: 16),
-          Tooltip(
+        ),
+        const SizedBox(height: 16),
+        Showcase(
+          key: tutorialKeys.swapButton,
+          title: 'Intercambiar Monedas',
+          description: 'Usa este botón para invertir rápidamente las monedas de origen y destino.',
+          child: Tooltip(
             message: 'Intercambiar monedas',
             child: GestureDetector(
               onTap: () => ref.read(calculatorProvider.notifier).swapCurrencies(),
@@ -373,19 +370,24 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          _buildConversionCard(
-            title: 'Recibes',
-            currencyCode: calculatorState.targetCurrencyId,
-            currencyName: getCurrencyName(calculatorState.targetCurrencyId, outputAmount),
-            amount: convertedAmount,
-            isInput: false,
-            onTapSelector: () => _showCurrencyPicker(context, isSource: false),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
+        ),
+        const SizedBox(height: 16),
+        _buildConversionCard(
+          title: 'Recibes',
+          currencyCode: calculatorState.targetCurrencyId,
+          currencyName: getCurrencyName(calculatorState.targetCurrencyId, outputAmount),
+          amount: convertedAmount,
+          isInput: false,
+          onTapSelector: () => _showCurrencyPicker(context, isSource: false),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: Showcase(
+                key: tutorialKeys.saveButton,
+                title: 'Guardar Cálculo',
+                description: 'Guarda este cálculo para añadirle un motivo y compartirlo como un "Dato de Pago" completo más tarde.',
                 child: OutlinedButton.icon(
                   onPressed: _showSaveDialog,
                   icon: const Icon(Icons.bookmark_add_outlined),
@@ -396,8 +398,13 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Showcase(
+                key: tutorialKeys.shareButton,
+                title: 'Compartir Cálculo',
+                description: 'Comparte rápidamente este cálculo como texto, imagen o QR, con o sin tus datos bancarios.',
                 child: ElevatedButton.icon(
                   onPressed: () => _sharePaymentData(),
                   icon: const Icon(Icons.share_outlined),
@@ -405,17 +412,22 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                   style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildRateInfoSection(
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Showcase(
+          key: tutorialKeys.rateDate,
+          title: 'Fecha de la Tasa',
+          description: 'Toca aquí para usar una tasa de una fecha anterior o para usar la tasa del día siguiente cuando esté disponible.',
+          child: _buildRateInfoSection(
             currentDate: calculatorState.selectedDate,
             displayRate: displayRate,
             sourceCurrency: calculatorState.sourceCurrencyId,
             targetCurrency: calculatorState.targetCurrencyId,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
