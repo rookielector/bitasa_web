@@ -5,7 +5,9 @@ import 'package:bitasa_web/core/theme/theme_provider.dart';
 import 'package:bitasa_web/features/historical/screens/historical_prices_screen.dart';
 import 'package:bitasa_web/features/accounts/screens/financial_accounts_screen.dart';
 import 'package:bitasa_web/shared/widgets/ad_widget.dart';
-import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart'; // --- IMPORT AÑADIDO ---
+import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart';
+// --- IMPORTAMOS LA NUEVA PANTALLA DE FAQ ---
+import 'package:bitasa_web/features/faq/screens/faq_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showcaseview/showcaseview.dart';
@@ -41,7 +43,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     if (!hasSeenTutorial) {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
-          // Ahora 'startTutorialProvider' es reconocido.
           ref.read(startTutorialProvider.notifier).state = true;
         }
       });
@@ -125,6 +126,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                 if (value == 'restart_tour') {
                   final keys = ref.read(tutorialKeysProvider).keys;
                   ShowCaseWidget.of(context).startShowCase(keys);
+                } else if (value == 'faq') {
+                  // --- LÓGICA DE NAVEGACIÓN A FAQ ---
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => const FaqScreen()),
+                  );
                 } else if (value == 'privacy') {
                   _launchURL('https://sites.google.com/view/bitasa/privacy');
                 } else if (value == 'terms') {
@@ -139,6 +145,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   child: ListTile(
                     leading: Icon(Icons.help_outline),
                     title: Text('Mostrar Tour Guiado'),
+                  ),
+                ),
+                // --- NUEVO ÍTEM DE MENÚ PARA FAQ ---
+                const PopupMenuItem<String>(
+                  value: 'faq',
+                  child: ListTile(
+                    leading: Icon(Icons.quiz_outlined),
+                    title: Text('Preguntas Frecuentes'),
                   ),
                 ),
                 const PopupMenuItem<String>(
@@ -179,18 +193,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             ),
             BottomNavigationBar(
               items: const <BottomNavigationBarItem>[
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.calculate),
-                  label: 'Calculadora',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.account_balance_wallet_outlined),
-                  label: 'Cuentas',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.history),
-                  label: 'Históricos',
-                ),
+                BottomNavigationBarItem(icon: Icon(Icons.calculate), label: 'Calculadora'),
+                BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Cuentas'),
+                BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Históricos'),
               ],
               currentIndex: _selectedIndex,
               selectedItemColor: Theme.of(context).colorScheme.secondary,
