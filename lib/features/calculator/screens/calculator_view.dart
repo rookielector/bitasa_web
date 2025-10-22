@@ -11,7 +11,7 @@ import 'package:bitasa_web/features/payments/providers/payments_provider.dart';
 import 'package:bitasa_web/features/payments/providers/share_provider.dart';
 import 'package:bitasa_web/features/payments/widgets/share_options_sheet.dart';
 import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart';
-import 'package:bitasa_web/screens/home_shell.dart'; // Importamos el HomeShell para acceder a la GlobalKey
+import 'package:bitasa_web/screens/home_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,23 +45,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       }
     });
 
-    _startTutorialIfFirstTime();
-  }
-
-  Future<void> _startTutorialIfFirstTime() async {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final hasSeenTutorial = await ref.read(tutorialSeenProvider.future);
-
-      if (!hasSeenTutorial && mounted) {
-        final keys = ref.read(tutorialKeysProvider);
-        final tutorialService = ref.read(tutorialServiceProvider);
-        
-        // El contexto que usamos aquí es el del ShowCaseWidget.of(context)
-        ShowCaseWidget.of(context).startShowCase(keys.keys);
-        
-        await tutorialService.markTutorialAsSeen();
-      }
-    });
+    // La lógica de inicio del tour se ha movido al 'build' a través de un 'ref.listen'.
   }
 
   @override
@@ -238,8 +222,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                 ElevatedButton(
                   onPressed: () {
                     Navigator.of(ctx).pop();
-                    // --- LLAMADA CORREGIDA PARA NAVEGAR ---
-                    homeShellKey.currentState?.onItemTapped(1); // El índice 1 es "Cuentas"
+                    homeShellKey.currentState?.onItemTapped(1);
                   },
                   child: const Text('Ir a Cuentas'),
                 ),
@@ -290,6 +273,20 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
 
   @override
   Widget build(BuildContext context) {
+    // Escucha la bandera del tutorial.
+    ref.listen<bool>(startTutorialProvider, (previous, shouldStart) {
+      if (shouldStart) {
+        final keys = ref.read(tutorialKeysProvider);
+        final tutorialService = ref.read(tutorialServiceProvider);
+        
+        ShowCaseWidget.of(context).startShowCase(keys.keys);
+        
+        tutorialService.markTutorialAsSeen();
+        // Resetea la bandera para que no se vuelva a lanzar en esta sesión.
+        ref.read(startTutorialProvider.notifier).state = false;
+      }
+    });
+    
     ref.listen<CalculatorState>(calculatorProvider, (previous, next) {
       if (next.inputAmount != _amountController.text && next.inputAmount != "0") {
         _amountController.text = next.inputAmount;

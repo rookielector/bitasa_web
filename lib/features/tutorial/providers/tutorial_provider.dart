@@ -10,14 +10,13 @@ class TutorialKeys {
   final GlobalKey swapButton = GlobalKey();
   final GlobalKey shareButton = GlobalKey();
   final GlobalKey saveButton = GlobalKey();
-  final GlobalKey rateDate = GlobalKey(); // Nueva clave para la fecha
+  final GlobalKey rateDate = GlobalKey();
 
   List<GlobalKey> get keys => [sourceCurrency, swapButton, shareButton, saveButton, rateDate];
 }
 
 // Un Provider simple que nos da una única instancia de TutorialKeys.
 final tutorialKeysProvider = Provider((ref) => TutorialKeys());
-
 
 // Un FutureProvider para gestionar el estado de "ya ha visto el tutorial".
 final tutorialSeenProvider = FutureProvider<bool>((ref) async {
@@ -34,3 +33,7 @@ class TutorialService {
     await prefs.setBool('hasSeenTutorial', true);
   }
 }
+
+// --- LÍNEA MOVIDA AQUÍ ---
+// Ahora es una variable global y será visible para otros archivos.
+final startTutorialProvider = StateProvider<bool>((ref) => false);

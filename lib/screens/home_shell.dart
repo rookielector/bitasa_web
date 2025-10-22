@@ -5,18 +5,15 @@ import 'package:bitasa_web/core/theme/theme_provider.dart';
 import 'package:bitasa_web/features/historical/screens/historical_prices_screen.dart';
 import 'package:bitasa_web/features/accounts/screens/financial_accounts_screen.dart';
 import 'package:bitasa_web/shared/widgets/ad_widget.dart';
-import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart';
+import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart'; // --- IMPORT AÑADIDO ---
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// --- PASO 1: Creamos una GlobalKey para el estado de HomeShell ---
-// La exportamos para que sea accesible desde otros archivos.
 final homeShellKey = GlobalKey<_HomeShellState>();
 
 class HomeShell extends ConsumerStatefulWidget {
-  // Le asignamos la clave a través del constructor.
   const HomeShell({super.key});
 
   @override
@@ -32,7 +29,25 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     HistoricalPricesScreen(),
   ];
 
-  // --- PASO 2: Hacemos el método público (quitando el '_') ---
+  @override
+  void initState() {
+    super.initState();
+    _checkAndTriggerTutorial();
+  }
+
+  Future<void> _checkAndTriggerTutorial() async {
+    final hasSeenTutorial = await ref.read(tutorialSeenProvider.future);
+    
+    if (!hasSeenTutorial) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          // Ahora 'startTutorialProvider' es reconocido.
+          ref.read(startTutorialProvider.notifier).state = true;
+        }
+      });
+    }
+  }
+
   void onItemTapped(int index) {
     if (mounted) {
       setState(() {
@@ -92,6 +107,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     return ShowCaseWidget(
       builder: (context) => Scaffold(
+        key: homeShellKey,
         appBar: AppBar(
           toolbarHeight: 80, 
           title: Image.asset('assets/images/logo.webp', height: 65),
@@ -180,7 +196,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               selectedItemColor: Theme.of(context).colorScheme.secondary,
               backgroundColor: Colors.transparent,
               elevation: 0,
-              onTap: onItemTapped, // Usamos el método público
+              onTap: onItemTapped,
             ),
           ],
         ),
