@@ -3,8 +3,7 @@
 import 'package:bitasa_web/core/theme/app_theme.dart';
 import 'package:bitasa_web/core/theme/theme_provider.dart';
 import 'package:bitasa_web/firebase_options.dart';
-// --- ASEGÚRATE DE QUE LA IMPORTACIÓN SEA LA CORRECTA ---
-import 'package:bitasa_web/screens/home_shell.dart';
+import 'package:bitasa_web/screens/home_shell.dart'; // La importación ahora trae 'homeShellKey'
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,8 +40,9 @@ class MyApp extends ConsumerWidget {
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
 
-      // --- CONFIRMA QUE ESTA LÍNEA APUNTE A HomeShell() ---
-      home: const HomeShell(),
+      // --- CAMBIO CLAVE: ASIGNAMOS LA GLOBALS KEY ---
+      // Le pasamos la clave global al constructor del HomeShell.
+      home: HomeShell(key: homeShellKey),
       
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

@@ -5,13 +5,18 @@ import 'package:bitasa_web/core/theme/theme_provider.dart';
 import 'package:bitasa_web/features/historical/screens/historical_prices_screen.dart';
 import 'package:bitasa_web/features/accounts/screens/financial_accounts_screen.dart';
 import 'package:bitasa_web/shared/widgets/ad_widget.dart';
-import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart'; // Importamos el provider
+import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showcaseview/showcaseview.dart';
-import 'package:url_launcher/url_launcher.dart'; // Importamos url_launcher
+import 'package:url_launcher/url_launcher.dart';
+
+// --- PASO 1: Creamos una GlobalKey para el estado de HomeShell ---
+// La exportamos para que sea accesible desde otros archivos.
+final homeShellKey = GlobalKey<_HomeShellState>();
 
 class HomeShell extends ConsumerStatefulWidget {
+  // Le asignamos la clave a través del constructor.
   const HomeShell({super.key});
 
   @override
@@ -27,21 +32,25 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     HistoricalPricesScreen(),
   ];
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  // --- PASO 2: Hacemos el método público (quitando el '_') ---
+  void onItemTapped(int index) {
+    if (mounted) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
-  // --- NUEVOS MÉTODOS PARA LAS ACCIONES DEL MENÚ ---
   void _launchURL(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo abrir el enlace: $url')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo abrir el enlace: $url')),
+        );
+      }
     }
   }
 
@@ -60,7 +69,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             SizedBox(height: 20),
             Center(
               child: Text(
-                'Versión: 1.0.0', // Versión que pediste
+                'Versión: 1.0.0',
                 style: TextStyle(color: Colors.grey),
               ),
             ),
@@ -98,7 +107,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'restart_tour') {
-                  // Leemos las claves del provider y las pasamos al showcase.
                   final keys = ref.read(tutorialKeysProvider).keys;
                   ShowCaseWidget.of(context).startShowCase(keys);
                 } else if (value == 'privacy') {
@@ -172,7 +180,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               selectedItemColor: Theme.of(context).colorScheme.secondary,
               backgroundColor: Colors.transparent,
               elevation: 0,
-              onTap: _onItemTapped,
+              onTap: onItemTapped, // Usamos el método público
             ),
           ],
         ),

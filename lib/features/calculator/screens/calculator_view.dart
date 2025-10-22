@@ -11,6 +11,7 @@ import 'package:bitasa_web/features/payments/providers/payments_provider.dart';
 import 'package:bitasa_web/features/payments/providers/share_provider.dart';
 import 'package:bitasa_web/features/payments/widgets/share_options_sheet.dart';
 import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart';
+import 'package:bitasa_web/screens/home_shell.dart'; // Importamos el HomeShell para acceder a la GlobalKey
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,15 +49,14 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
   }
 
   Future<void> _startTutorialIfFirstTime() async {
-    // Esperamos a que el widget se construya.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Usamos 'ref.read' porque estamos en un método que no se reconstruye.
       final hasSeenTutorial = await ref.read(tutorialSeenProvider.future);
 
       if (!hasSeenTutorial && mounted) {
         final keys = ref.read(tutorialKeysProvider);
         final tutorialService = ref.read(tutorialServiceProvider);
         
+        // El contexto que usamos aquí es el del ShowCaseWidget.of(context)
         ShowCaseWidget.of(context).startShowCase(keys.keys);
         
         await tutorialService.markTutorialAsSeen();
@@ -235,7 +235,14 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
               content: const Text('Para compartir tus datos de pago, primero necesitas añadir una cuenta en la pestaña "Cuentas".'),
               actions: [
                 TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Más Tarde')),
-                ElevatedButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Ir a Cuentas')),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    // --- LLAMADA CORREGIDA PARA NAVEGAR ---
+                    homeShellKey.currentState?.onItemTapped(1); // El índice 1 es "Cuentas"
+                  },
+                  child: const Text('Ir a Cuentas'),
+                ),
               ],
             ),
           );
