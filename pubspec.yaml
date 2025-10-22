@@ -29,6 +29,8 @@ dependencies:
   share_plus: ^9.0.0 # Compartir
   qr_flutter: ^4.1.0 # QR
 
+  url_launcher: ^6.3.1 # Lanzar URLs
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -3,8 +3,8 @@
 import 'package:bitasa_web/features/currency/currency_data.dart';
 import 'package:bitasa_web/features/currency/exchange_rate.dart';
 import 'package:bitasa_web/features/historical/providers/historical_provider.dart';
-// --- IMPORTAMOS NUESTRA NUEVA VISTA DE GRÁFICOS ---
 import 'package:bitasa_web/features/historical/screens/charts_view.dart';
+// import 'package:bitasa_web/shared/widgets/responsive_center.dart'; // -> IMPORTACIÓN ELIMINADA
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +19,7 @@ class HistoricalPricesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ratesAsyncValue = ref.watch(historicalRatesStreamProvider);
 
-    // --- CAMBIO: AHORA TENEMOS 2 PESTAÑAS ---
+    // --- RESPONSIVECENTER ELIMINADO DE AQUÍ ---
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -37,11 +37,10 @@ class HistoricalPricesScreen extends ConsumerWidget {
             if (rates.isEmpty) {
               return const Center(child: Text('No hay datos históricos disponibles.'));
             }
-            // --- CAMBIO: USAMOS UN TABBARVIEW ---
             return const TabBarView(
               children: [
-                HistoricalListView(), // Primera pestaña
-                ChartsView(),         // Segunda pestaña
+                HistoricalListView(),
+                ChartsView(),
               ],
             );
           },
@@ -56,8 +55,6 @@ class HistoricalPricesScreen extends ConsumerWidget {
 }
 
 // El resto del archivo (HistoricalListView, _CalendarDialog) no necesita cambios.
-// Pega aquí el resto del código que ya teníamos para esas clases.
-
 class HistoricalListView extends ConsumerStatefulWidget {
   const HistoricalListView({super.key});
 

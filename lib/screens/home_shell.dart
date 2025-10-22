@@ -4,6 +4,7 @@ import 'package:bitasa_web/features/calculator/screens/calculator_view.dart';
 import 'package:bitasa_web/core/theme/theme_provider.dart';
 import 'package:bitasa_web/features/historical/screens/historical_prices_screen.dart';
 import 'package:bitasa_web/features/accounts/screens/financial_accounts_screen.dart';
+import 'package:bitasa_web/shared/widgets/ad_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,11 +32,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    // --- LÍNEAS CORREGIDAS ---
-    // Primero, leemos el notifier para tener acceso a sus métodos.
     final themeNotifier = ref.read(themeProvider.notifier);
-    // Luego, usamos el notifier para obtener el valor booleano.
     final isDarkMode = themeNotifier.isDarkMode(context);
+
+    const double maxWidth = 800; // Definimos nuestro ancho máximo de contenido.
 
     return Scaffold(
       appBar: AppBar(
@@ -52,32 +52,56 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           ),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: SafeArea(
-            child: _widgetOptions.elementAt(_selectedIndex),
-          ),
-        ),
+      // --- CAMBIO CLAVE: Usamos un LayoutBuilder para el body ---
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Si la pantalla es más ancha que nuestro máximo, centramos el contenido.
+          if (constraints.maxWidth > maxWidth) {
+            return Center(
+              child: SizedBox(
+                width: maxWidth,
+                child: SafeArea(child: _widgetOptions.elementAt(_selectedIndex)),
+              ),
+            );
+          } else {
+            // En pantallas estrechas, el contenido ocupa todo el ancho.
+            return SafeArea(child: _widgetOptions.elementAt(_selectedIndex));
+          }
+        },
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calculate),
-            label: 'Calculadora',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            label: 'Cuentas',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Históricos',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).colorScheme.secondary,
-        onTap: _onItemTapped,
+      
+      // La barra inferior también usa el mismo patrón.
+      bottomNavigationBar: LayoutBuilder(
+        builder: (context, constraints) {
+          final horizontalPadding = constraints.maxWidth > maxWidth
+              ? (constraints.maxWidth - maxWidth) / 2
+              : 0.0;
+
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: AdWidget(),
+                ),
+                BottomNavigationBar(
+                  items: const <BottomNavigationBarItem>[
+                    BottomNavigationBarItem(icon: Icon(Icons.calculate), label: 'Calculadora'),
+                    BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Cuentas'),
+                    BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Históricos'),
+                  ],
+                  currentIndex: _selectedIndex,
+                  selectedItemColor: Theme.of(context).colorScheme.secondary,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  onTap: _onItemTapped,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

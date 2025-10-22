@@ -291,20 +291,30 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     final rateInfoAsyncValue = ref.watch(rateInfoProvider);
 
     return rateInfoAsyncValue.when(
-      data: (rateInfo) => CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildCalculatorView()),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text('Cálculos para Gestión de Pagos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
-          _buildSavedPaymentsList(),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ],
+      data: (rateInfo) => LayoutBuilder(
+        builder: (context, constraints) {
+          final horizontalPadding = constraints.maxWidth > 800
+              ? (constraints.maxWidth - 800) / 2
+              : 16.0;
+
+          return ListView(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            children: [
+              _buildCalculatorContent(),
+              const SizedBox(height: 24),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text('Cálculos para Gestión de Pagos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: _buildSavedPaymentsList(),
+              ),
+              const SizedBox(height: 24),
+            ],
+          );
+        },
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) {
@@ -328,7 +338,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     );
   }
 
-  Widget _buildCalculatorView() {
+  Widget _buildCalculatorContent() {
     final calculatorState = ref.watch(calculatorProvider);
     final convertedAmount = ref.watch(convertedAmountProvider);
     final num inputAmount = num.tryParse(calculatorState.inputAmount) ?? 0;
@@ -359,11 +369,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
               child: CircleAvatar(
                 radius: 22,
                 backgroundColor: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
-                child: Icon(
-                  Icons.swap_vert,
-                  color: Theme.of(context).colorScheme.secondary,
-                  size: 28,
-                ),
+                child: Icon(Icons.swap_vert, color: Theme.of(context).colorScheme.secondary, size: 28),
               ),
             ),
           ),
@@ -396,9 +402,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                   onPressed: () => _sharePaymentData(),
                   icon: const Icon(Icons.share_outlined),
                   label: const Text('Compartir'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
                 ),
               ),
             ],
@@ -423,28 +427,25 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     return savedPaymentsAsync.when(
       data: (payments) {
         if (payments.isEmpty) {
-          return const SliverToBoxAdapter(
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 40.0, horizontal: 20.0),
-                child: Text(
-                  'Los cálculos que guardes aparecerán aquí.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 40.0, horizontal: 20.0),
+              child: Text(
+                'Los cálculos que guardes aparecerán aquí.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
             ),
           );
         }
-
-        return SliverList.builder(
-          itemCount: payments.length > 5 ? 5 : payments.length,
-          itemBuilder: (context, index) {
+        
+        return Column(
+          children: List.generate(payments.length > 5 ? 5 : payments.length, (index) {
             final payment = payments[index];
             final formattedRateDate = DateFormat('dd/MM/yyyy').format(payment.rateDate);
 
             return Card(
-              margin: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
+              margin: const EdgeInsets.fromLTRB(0, 8.0, 0, 0),
               child: ListTile(
                 title: Text(
                   '${numberFormatter.format(payment.sourceAmount)} ${payment.sourceCurrencyId} ➔ ${numberFormatter.format(payment.targetAmount)} ${payment.targetCurrencyId}',
@@ -482,38 +483,20 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                     }
                   },
                   itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(
-                      value: 'edit',
-                      child: ListTile(
-                        leading: Icon(Icons.edit_outlined),
-                        title: Text('Editar Motivo'),
-                      ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'share',
-                      child: ListTile(
-                        leading: Icon(Icons.share_outlined, color: Theme.of(context).colorScheme.secondary),
-                        title: Text('Compartir'),
-                      ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'delete',
-                      child: ListTile(
-                        leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-                        title: Text('Eliminar'),
-                      ),
-                    ),
+                    const PopupMenuItem<String>(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Editar Motivo'))),
+                    PopupMenuItem<String>(value: 'share', child: ListTile(leading: Icon(Icons.share_outlined), title: Text('Compartir'))),
+                    PopupMenuItem<String>(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Eliminar'))),
                   ],
                   icon: const Icon(Icons.more_vert),
                   tooltip: 'Más opciones',
                 ),
               ),
             );
-          },
+          }),
         );
       },
-      loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
-      error: (e, s) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text('Error: $e')),
     );
   }
 
@@ -591,7 +574,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     );
   }
 
-  // --- WIDGET _buildConversionCard CORREGIDO (NUEVO ENFOQUE) ---
   Widget _buildConversionCard({
     required String title,
     required String currencyCode,
@@ -611,13 +593,11 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20.0),
       ),
-      // --- Usamos LayoutBuilder para obtener el ancho real disponible ---
       child: LayoutBuilder(
         builder: (context, constraints) {
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // --- Columna Izquierda (Selector de Moneda) ---
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -645,11 +625,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                   ),
                 ],
               ),
-              
-              // --- Columna Derecha (Monto) ---
-              // Usamos un SizedBox con un ancho calculado basado en las restricciones del LayoutBuilder
               SizedBox(
-                // Le damos un poco más del 50% del espacio disponible en la tarjeta.
                 width: constraints.maxWidth * 0.55,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,

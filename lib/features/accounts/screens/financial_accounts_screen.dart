@@ -5,15 +5,15 @@ import 'package:bitasa_web/features/accounts/providers/accounts_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bitasa_web/features/accounts/screens/financial_account_form.dart';
+// import 'package:bitasa_web/shared/widgets/responsive_center.dart'; // -> IMPORTACIÓN ELIMINADA
 
 class FinancialAccountsScreen extends ConsumerWidget {
   const FinancialAccountsScreen({super.key});
 
-  // Método para mostrar el formulario de añadir/editar en un BottomSheet.
   void _showFormBottomSheet(BuildContext context, {FinancialAccount? account}) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Crucial para que el teclado no tape el formulario.
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -25,9 +25,9 @@ class FinancialAccountsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Observamos el estado del provider. Riverpod maneja los estados de carga/error/datos.
     final accountsAsyncValue = ref.watch(accountsProvider);
 
+    // --- RESPONSIVECENTER ELIMINADO DE AQUÍ ---
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -52,7 +52,6 @@ class FinancialAccountsScreen extends ConsumerWidget {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () {
-            // El botón (+) llama al método para mostrar el formulario en modo "añadir".
             _showFormBottomSheet(context);
           },
           tooltip: 'Añadir Cuenta',
@@ -84,12 +83,14 @@ class FinancialAccountsScreen extends ConsumerWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
+      // Añadimos padding horizontal aquí para que la lista tenga márgenes en móvil.
+      padding: const EdgeInsets.symmetric(horizontal: 16.0).copyWith(bottom: 80),
       itemCount: filteredAccounts.length,
       itemBuilder: (context, index) {
         final account = filteredAccounts[index];
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          // Quitamos el margen horizontal de la Card, ya que el ListView lo gestiona.
+          margin: const EdgeInsets.symmetric(vertical: 8),
           child: ListTile(
             leading: IconButton(
               icon: Icon(
@@ -97,7 +98,6 @@ class FinancialAccountsScreen extends ConsumerWidget {
                 color: account.isDefault ? Theme.of(context).colorScheme.secondary : Colors.grey,
               ),
               onPressed: () {
-                // Llamamos al método del notifier para actualizar la BD y el estado.
                 ref.read(accountsProvider.notifier).setAsDefault(account.id);
               },
               tooltip: 'Marcar como predeterminado',
@@ -111,11 +111,9 @@ class FinancialAccountsScreen extends ConsumerWidget {
             trailing: PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'edit') {
-                  // Muestra el formulario en modo "edición", pasando la cuenta.
                   _showFormBottomSheet(context, account: account);
                 }
                 if (value == 'delete') {
-                  // Llamamos al método del notifier para eliminar.
                   ref.read(accountsProvider.notifier).deleteAccount(account.id);
                 }
               },
