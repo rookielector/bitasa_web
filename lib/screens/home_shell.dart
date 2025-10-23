@@ -6,12 +6,12 @@ import 'package:bitasa_web/features/historical/screens/historical_prices_screen.
 import 'package:bitasa_web/features/accounts/screens/financial_accounts_screen.dart';
 import 'package:bitasa_web/shared/widgets/ad_widget.dart';
 import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart';
-// --- IMPORTAMOS LA NUEVA PANTALLA DE FAQ ---
 import 'package:bitasa_web/features/faq/screens/faq_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 
 final homeShellKey = GlobalKey<_HomeShellState>();
 
@@ -101,6 +101,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
+  void _shareApp() {
+    const String appUrl = 'https://bitasa-v1.web.app/';
+    const String message = 
+      '¡Hola! Te recomiendo Bitasa Web, una calculadora de divisas súper útil y fácil de usar. '
+      'Realiza tus conversiones entre VES, USD y EUR con las tasas oficiales del BCV. '
+      '¡Pruébala aquí!\n\n$appUrl';
+      
+    Share.share(message);
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeNotifier = ref.read(themeProvider.notifier);
@@ -127,10 +137,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   final keys = ref.read(tutorialKeysProvider).keys;
                   ShowCaseWidget.of(context).startShowCase(keys);
                 } else if (value == 'faq') {
-                  // --- LÓGICA DE NAVEGACIÓN A FAQ ---
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (context) => const FaqScreen()),
                   );
+                } else if (value == 'share_app') {
+                  _shareApp();
                 } else if (value == 'privacy') {
                   _launchURL('https://sites.google.com/view/bitasa/privacy');
                 } else if (value == 'terms') {
@@ -147,7 +158,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     title: Text('Mostrar Tour Guiado'),
                   ),
                 ),
-                // --- NUEVO ÍTEM DE MENÚ PARA FAQ ---
                 const PopupMenuItem<String>(
                   value: 'faq',
                   child: ListTile(
@@ -155,6 +165,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     title: Text('Preguntas Frecuentes'),
                   ),
                 ),
+                const PopupMenuItem<String>(
+                  value: 'share_app',
+                  child: ListTile(
+                    leading: Icon(Icons.share),
+                    title: Text('Compartir App'),
+                  ),
+                ),
+                const PopupMenuDivider(),
                 const PopupMenuItem<String>(
                   value: 'privacy',
                   child: ListTile(
@@ -193,9 +211,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             ),
             BottomNavigationBar(
               items: const <BottomNavigationBarItem>[
-                BottomNavigationBarItem(icon: Icon(Icons.calculate), label: 'Calculadora'),
-                BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Cuentas'),
-                BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Históricos'),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.calculate),
+                  label: 'Calculadora',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.account_balance_wallet_outlined),
+                  label: 'Cuentas',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.history),
+                  label: 'Históricos',
+                ),
               ],
               currentIndex: _selectedIndex,
               selectedItemColor: Theme.of(context).colorScheme.secondary,
