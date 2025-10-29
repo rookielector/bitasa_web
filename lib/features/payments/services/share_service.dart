@@ -15,41 +15,41 @@ import 'package:share_plus/share_plus.dart';
 class ShareService {
   final WidgetCaptureService _captureService = WidgetCaptureService();
 
-  // --- MÉTODOS PÚBLICOS PRINCIPALES ---
+  // --- MÉTODOS PÚBLICOS PRINCIPALES (MODIFICADOS) ---
 
   // TEXTO
-  Future<void> shareSimpleCalculationAsText(PaymentData paymentData) async {
-    final textContent = _generateSimpleText(paymentData);
+  Future<void> shareSimpleCalculationAsText(PaymentData paymentData, {String? referenceRate}) async {
+    final textContent = _generateSimpleText(paymentData, referenceRate: referenceRate);
     await _shareText(textContent);
   }
 
-  Future<void> sharePaymentDataAsText(PaymentData paymentData, FinancialAccount account) async {
-    final textContent = _generatePaymentDataText(paymentData, account);
+  Future<void> sharePaymentDataAsText(PaymentData paymentData, FinancialAccount account, {String? referenceRate}) async {
+    final textContent = _generatePaymentDataText(paymentData, account, referenceRate: referenceRate);
     await _shareText(textContent);
   }
 
   // IMAGEN
-  Future<void> shareSimpleCalculationAsImage(BuildContext context, PaymentData paymentData) async {
+  Future<void> shareSimpleCalculationAsImage(BuildContext context, PaymentData paymentData, {String? referenceRate}) async {
     await _showPreviewAndShare(
       context: context,
       title: 'Previsualización de Cálculo',
-      child: SimpleCalcImageWidget(paymentData: paymentData),
+      child: SimpleCalcImageWidget(paymentData: paymentData, referenceRate: referenceRate),
       fileName: 'bitasa_calculo.png',
     );
   }
 
-  Future<void> sharePaymentDataAsImage(BuildContext context, PaymentData paymentData, FinancialAccount account) async {
+  Future<void> sharePaymentDataAsImage(BuildContext context, PaymentData paymentData, FinancialAccount account, {String? referenceRate}) async {
     await _showPreviewAndShare(
       context: context,
       title: 'Previsualización de Datos de Pago',
-      child: PaymentDataImageWidget(paymentData: paymentData, account: account),
+      child: PaymentDataImageWidget(paymentData: paymentData, account: account, referenceRate: referenceRate),
       fileName: 'bitasa_pago.png',
     );
   }
 
   // CÓDIGO QR
-  Future<void> shareSimpleCalculationAsQr(BuildContext context, PaymentData paymentData) async {
-    final textContent = _generateSimpleText(paymentData) + _getFooter();
+  Future<void> shareSimpleCalculationAsQr(BuildContext context, PaymentData paymentData, {String? referenceRate}) async {
+    final textContent = _generateSimpleText(paymentData, referenceRate: referenceRate) + _getFooter();
     await _showPreviewAndShare(
       context: context,
       title: 'Código QR del Cálculo',
@@ -58,8 +58,8 @@ class ShareService {
     );
   }
 
-  Future<void> sharePaymentDataAsQr(BuildContext context, PaymentData paymentData, FinancialAccount account) async {
-    final textContent = _generatePaymentDataText(paymentData, account) + _getFooter();
+  Future<void> sharePaymentDataAsQr(BuildContext context, PaymentData paymentData, FinancialAccount account, {String? referenceRate}) async {
+    final textContent = _generatePaymentDataText(paymentData, account, referenceRate: referenceRate) + _getFooter();
     await _showPreviewAndShare(
       context: context,
       title: 'Código QR de Datos de Pago',
@@ -68,26 +68,30 @@ class ShareService {
     );
   }
 
+  // --- MÉTODOS PRIVADOS AUXILIARES (MODIFICADOS) ---
 
-  // --- MÉTODOS PRIVADOS AUXILIARES ---
-
-  String _generateSimpleText(PaymentData paymentData) {
+  String _generateSimpleText(PaymentData paymentData, {String? referenceRate}) {
     final numberFormatter = NumberFormat('#,##0.00', 'es_VE');
     final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
     final formattedCalcDate = DateFormat('dd/MM/yyyy HH:mm').format(paymentData.calculationDate);
     final formattedRateDate = DateFormat('dd/MM/yyyy').format(paymentData.rateDate);
-    
+
+    // Lógica para determinar qué tasa mostrar
+    final rateLine = (referenceRate != null && referenceRate.isNotEmpty)
+        ? referenceRate
+        : '1 ${paymentData.sourceCurrencyId} = ${rateFormatter.format(paymentData.exchangeRate)} ${paymentData.targetCurrencyId}';
+
     return '''
 *Bitasa - Cálculo de Conversión*
 ${numberFormatter.format(paymentData.sourceAmount)} ${paymentData.sourceCurrencyId} = *${numberFormatter.format(paymentData.targetAmount)} ${paymentData.targetCurrencyId}*
 ----------------------------------
-*Tasa Aplicada:* 1 ${paymentData.sourceCurrencyId} = ${rateFormatter.format(paymentData.exchangeRate)} ${paymentData.targetCurrencyId}
+*Tasa Aplicada:* $rateLine
 *Fecha de la Tasa:* $formattedRateDate
 *Fecha del Cálculo:* $formattedCalcDate
 ''';
   }
 
-  String _generatePaymentDataText(PaymentData paymentData, FinancialAccount account) {
+  String _generatePaymentDataText(PaymentData paymentData, FinancialAccount account, {String? referenceRate}) {
     final resultFormatter = NumberFormat('#,##0.00', 'es_VE');
     final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
     final formattedCalcDate = DateFormat('dd/MM/yyyy HH:mm').format(paymentData.calculationDate);
@@ -98,6 +102,11 @@ ${numberFormatter.format(paymentData.sourceAmount)} ${paymentData.sourceCurrency
       subjectLine = '*Motivo:* ${paymentData.subject}\n';
     }
 
+    // Lógica para determinar qué tasa mostrar
+    final rateLine = (referenceRate != null && referenceRate.isNotEmpty)
+        ? referenceRate
+        : '1 ${paymentData.sourceCurrencyId} = ${rateFormatter.format(paymentData.exchangeRate)} ${paymentData.targetCurrencyId}';
+
     return '''
 *Bitasa - Datos para el Pago*
 ${subjectLine}*Entidad:* ${account.institutionName}
@@ -105,7 +114,7 @@ ${subjectLine}*Entidad:* ${account.institutionName}
 *Cédula/RIF:* ${account.idCard}
 *Monto a Pagar:* *${resultFormatter.format(paymentData.targetAmount)} ${paymentData.targetCurrencyId}*
 ----------------------------------
-*Tasa Aplicada:* 1 ${paymentData.sourceCurrencyId} = ${rateFormatter.format(paymentData.exchangeRate)} ${paymentData.targetCurrencyId}
+*Tasa Aplicada:* $rateLine
 *Fecha de la Tasa:* $formattedRateDate
 *Fecha del Cálculo:* $formattedCalcDate
 ''';

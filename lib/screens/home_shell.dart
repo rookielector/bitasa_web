@@ -25,7 +25,6 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _selectedIndex = 0;
 
-  // CAMBIO SOLICITADO: Se actualiza el ancho máximo de 700 a 800.
   static const double maxLayoutWidth = 800.0;
 
   static const List<Widget> _widgetOptions = <Widget>[
@@ -126,7 +125,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             final bool isWideScreen = constraints.maxWidth > maxLayoutWidth;
 
             final scaffold = Scaffold(
-              key: homeShellKey,
+              // LÍNEA CORREGIDA: Se ha eliminado 'key: homeShellKey' de aquí.
               appBar: AppBar(
                 toolbarHeight: 80,
                 title: Image.asset('assets/images/logo.webp', height: 65),

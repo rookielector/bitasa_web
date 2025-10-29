@@ -8,11 +8,13 @@ import 'package:intl/intl.dart';
 class PaymentDataImageWidget extends StatelessWidget {
   final PaymentData paymentData;
   final FinancialAccount account;
+  final String? referenceRate;
 
   const PaymentDataImageWidget({
     super.key,
     required this.paymentData,
     required this.account,
+    this.referenceRate,
   });
 
   @override
@@ -21,6 +23,11 @@ class PaymentDataImageWidget extends StatelessWidget {
     final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
     final formattedCalcDate = DateFormat('dd/MM/yyyy HH:mm').format(paymentData.calculationDate);
     final formattedRateDate = DateFormat('dd/MM/yyyy').format(paymentData.rateDate);
+    
+    // Lógica para determinar qué tasa mostrar
+    final rateLine = (referenceRate != null && referenceRate!.isNotEmpty)
+        ? referenceRate!
+        : '1 ${paymentData.sourceCurrencyId} = ${rateFormatter.format(paymentData.exchangeRate)} ${paymentData.targetCurrencyId}';
 
     return Container(
       padding: const EdgeInsets.all(20.0),
@@ -67,7 +74,7 @@ class PaymentDataImageWidget extends StatelessWidget {
           
           _buildInfoRow(
             'Tasa Aplicada:', 
-            '1 ${paymentData.sourceCurrencyId} = ${rateFormatter.format(paymentData.exchangeRate)} ${paymentData.targetCurrencyId}',
+            rateLine, // Usamos la variable con la lógica
           ),
           _buildInfoRow('Fecha de la Tasa:', formattedRateDate),
           _buildInfoRow('Fecha del Cálculo:', formattedCalcDate),

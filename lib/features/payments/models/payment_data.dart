@@ -15,10 +15,13 @@ class PaymentData {
 
   // Datos de la tasa usada
   final DateTime rateDate;
-  final double exchangeRate;
+  final double exchangeRate; // Campo legado, se mantiene por compatibilidad
+  final String? subject; 
 
-  // --- NUEVO CAMPO AÑADIDO ---
-  final String? subject; // Motivo del pago, es opcional.
+  // --- NUEVOS CAMPOS PARA LA TASA DE REFERENCIA ---
+  // Guardan la tasa base (ej: 1 USD = 219.87 VES) sin importar la dirección del cálculo.
+  final double? referenceRateValue;
+  final String? referenceRateCurrencyId;
 
   PaymentData({
     this.id,
@@ -29,7 +32,10 @@ class PaymentData {
     required this.targetCurrencyId,
     required this.rateDate,
     required this.exchangeRate,
-    this.subject, // Lo añadimos al constructor.
+    this.subject,
+    // Añadimos los nuevos campos al constructor
+    this.referenceRateValue,
+    this.referenceRateCurrencyId,
   });
 
   Currency get sourceCurrency => getCurrencyById(sourceCurrencyId);
@@ -45,7 +51,10 @@ class PaymentData {
       targetCurrencyId: map['targetCurrencyId'] as String,
       rateDate: DateTime.parse(map['rateDate'] as String),
       exchangeRate: (map['exchangeRate'] as num).toDouble(),
-      subject: map['subject'] as String?, // Leemos el nuevo campo.
+      subject: map['subject'] as String?,
+      // Leemos los nuevos campos (pueden ser nulos en datos antiguos)
+      referenceRateValue: (map['referenceRateValue'] as num?)?.toDouble(),
+      referenceRateCurrencyId: map['referenceRateCurrencyId'] as String?,
     );
   }
 
@@ -58,7 +67,10 @@ class PaymentData {
       'targetCurrencyId': targetCurrencyId,
       'rateDate': rateDate.toIso8601String(),
       'exchangeRate': exchangeRate,
-      'subject': subject, // Guardamos el nuevo campo.
+      'subject': subject,
+      // Guardamos los nuevos campos
+      'referenceRateValue': referenceRateValue,
+      'referenceRateCurrencyId': referenceRateCurrencyId,
     };
   }
 
@@ -72,7 +84,10 @@ class PaymentData {
       targetCurrencyId: targetCurrencyId,
       rateDate: rateDate,
       exchangeRate: exchangeRate,
-      subject: subject ?? this.subject, // Lo añadimos al copyWith.
+      subject: subject ?? this.subject,
+      // Los añadimos al copyWith
+      referenceRateValue: referenceRateValue,
+      referenceRateCurrencyId: referenceRateCurrencyId,
     );
   }
 }

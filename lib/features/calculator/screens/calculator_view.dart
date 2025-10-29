@@ -44,8 +44,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
         );
       }
     });
-
-    // La lógica de inicio del tour se ha movido al 'build' a través de un 'ref.listen'.
   }
 
   @override
@@ -95,17 +93,23 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     }
   }
 
+  // MODIFICADO 1/3: Lógica de Guardado
   void _saveCurrentCalculation({String? subject}) {
     final calcState = ref.read(calculatorProvider);
     final rates = ref.read(roundedRatesProvider);
-    final displayRate = (rates[calcState.targetCurrencyId] ?? 0.0) > 0
-        ? (rates[calcState.sourceCurrencyId] ?? 0.0) / (rates[calcState.targetCurrencyId] ?? 1.0)
-        : 0.0;
+    final convertedAmountString = ref.read(convertedAmountProvider).replaceAll('.', '').replaceAll(',', '.');
+
+    // --- NUEVA LÓGICA PARA OBTENER LA TASA DE REFERENCIA ---
+    String referenceCurrencyId = 'USD'; // Valor por defecto
+    if (calcState.sourceCurrencyId != 'VES') {
+      referenceCurrencyId = calcState.sourceCurrencyId;
+    } else if (calcState.targetCurrencyId != 'VES') {
+      referenceCurrencyId = calcState.targetCurrencyId;
+    }
+
+    final double referenceRateValue = rates[referenceCurrencyId] ?? 0.0;
     
-    final convertedAmountString = ref.read(convertedAmountProvider)
-      .replaceAll('.', '')
-      .replaceAll(',', '.');
-        
+    // El 'exchangeRate' legado ahora también guarda la tasa de referencia para consistencia.
     final newPayment = PaymentData(
       calculationDate: DateTime.now(),
       sourceAmount: double.tryParse(calcState.inputAmount) ?? 0.0,
@@ -113,8 +117,11 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       targetAmount: double.tryParse(convertedAmountString) ?? 0.0,
       targetCurrencyId: calcState.targetCurrencyId,
       rateDate: calcState.selectedDate,
-      exchangeRate: displayRate,
+      exchangeRate: referenceRateValue, // Guardamos la tasa de referencia
       subject: subject,
+      // Guardamos los nuevos campos explícitos
+      referenceRateValue: referenceRateValue,
+      referenceRateCurrencyId: referenceCurrencyId,
     );
 
     ref.read(savedPaymentsProvider.notifier).savePayment(newPayment);
@@ -175,9 +182,12 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     }
   }
 
+  // MODIFICADO 2/3: Lógica de Compartir
   void _sharePaymentData({PaymentData? paymentFromList}) async {
     final bool isFromSavedList = paymentFromList != null;
     final shareService = ref.read(shareServiceProvider);
+    
+    final String activeReferenceRate = ref.read(activeReferenceRateProvider);
 
     final PaymentData paymentData;
     if (isFromSavedList) {
@@ -244,28 +254,35 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       }
       
       if (accountToUse == null) return;
+
+      // --- NUEVA LÓGICA PARA OBTENER LA TASA DE REFERENCIA DE UN CÁLCULO GUARDADO ---
+      String referenceRateForSharing = '';
+      final rateFormatter = NumberFormat("#,##0.00", "es_VE");
+      if (paymentData.referenceRateValue != null && paymentData.referenceRateCurrencyId != null) {
+        referenceRateForSharing = '1 ${paymentData.referenceRateCurrencyId} = ${rateFormatter.format(paymentData.referenceRateValue)} VES';
+      }
       
       switch (selectedOption) {
         case ShareOption.text:
-          await shareService.sharePaymentDataAsText(paymentData, accountToUse);
+          await shareService.sharePaymentDataAsText(paymentData, accountToUse, referenceRate: referenceRateForSharing);
           break;
         case ShareOption.image:
-          await shareService.sharePaymentDataAsImage(context, paymentData, accountToUse);
+          await shareService.sharePaymentDataAsImage(context, paymentData, accountToUse, referenceRate: referenceRateForSharing);
           break;
         case ShareOption.qr:
-          await shareService.sharePaymentDataAsQr(context, paymentData, accountToUse);
+          await shareService.sharePaymentDataAsQr(context, paymentData, accountToUse, referenceRate: referenceRateForSharing);
           break;
       }
     } else {
       switch (selectedOption) {
         case ShareOption.text:
-          await shareService.shareSimpleCalculationAsText(paymentData);
+          await shareService.shareSimpleCalculationAsText(paymentData, referenceRate: activeReferenceRate);
           break;
         case ShareOption.image:
-          await shareService.shareSimpleCalculationAsImage(context, paymentData);
+          await shareService.shareSimpleCalculationAsImage(context, paymentData, referenceRate: activeReferenceRate);
           break;
         case ShareOption.qr:
-          await shareService.shareSimpleCalculationAsQr(context, paymentData);
+          await shareService.shareSimpleCalculationAsQr(context, paymentData, referenceRate: activeReferenceRate);
           break;
       }
     }
@@ -273,7 +290,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
 
   @override
   Widget build(BuildContext context) {
-    // Escucha la bandera del tutorial.
     ref.listen<bool>(startTutorialProvider, (previous, shouldStart) {
       if (shouldStart) {
         final keys = ref.read(tutorialKeysProvider);
@@ -282,7 +298,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
         ShowCaseWidget.of(context).startShowCase(keys.keys);
         
         tutorialService.markTutorialAsSeen();
-        // Resetea la bandera para que no se vuelva a lanzar en esta sesión.
         ref.read(startTutorialProvider.notifier).state = false;
       }
     });
@@ -337,10 +352,6 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
     final convertedAmount = ref.watch(convertedAmountProvider);
     final num inputAmount = num.tryParse(calculatorState.inputAmount) ?? 0;
     final num outputAmount = num.tryParse(convertedAmount.replaceAll('.', '').replaceAll(',', '.')) ?? 0;
-    final rates = ref.watch(roundedRatesProvider);
-    final double sourceRate = rates[calculatorState.sourceCurrencyId] ?? 0.0;
-    final double targetRate = rates[calculatorState.targetCurrencyId] ?? 0.0;
-    final double displayRate = (targetRate > 0) ? sourceRate / targetRate : 0.0;
     
     return Column(
       children: [
@@ -426,15 +437,13 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
           description: 'Toca aquí para usar una tasa de una fecha anterior o para usar la tasa del día siguiente cuando esté disponible.',
           child: _buildRateInfoSection(
             currentDate: calculatorState.selectedDate,
-            displayRate: displayRate,
-            sourceCurrency: calculatorState.sourceCurrencyId,
-            targetCurrency: calculatorState.targetCurrencyId,
           ),
         ),
       ],
     );
   }
 
+  // MODIFICADO 3/3: Lógica de Visualización de la Lista
   Widget _buildSavedPaymentsList() {
     final savedPaymentsAsync = ref.watch(savedPaymentsProvider);
     final numberFormatter = NumberFormat('#,##0.00', 'es_VE');
@@ -460,6 +469,16 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
             final payment = payments[index];
             final formattedRateDate = DateFormat('dd/MM/yyyy').format(payment.rateDate);
 
+            // --- NUEVA LÓGICA PARA MOSTRAR LA TASA DE REFERENCIA ---
+            String rateText;
+            if (payment.referenceRateValue != null && payment.referenceRateCurrencyId != null) {
+              // Si tenemos los nuevos datos, los usamos para construir la tasa de referencia.
+              rateText = 'Tasa: 1 ${payment.referenceRateCurrencyId} = ${rateFormatter.format(payment.referenceRateValue)} VES (Tasa del $formattedRateDate)';
+            } else {
+              // Si son datos antiguos, usamos la lógica anterior para no romper la visualización.
+              rateText = 'Tasa: 1 ${payment.sourceCurrencyId} = ${rateFormatter.format(payment.exchangeRate)} ${payment.targetCurrencyId} (Tasa del $formattedRateDate)';
+            }
+
             return Card(
               margin: const EdgeInsets.fromLTRB(0, 8.0, 0, 0),
               child: ListTile(
@@ -479,9 +498,7 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    Text(
-                      'Tasa: 1 ${payment.sourceCurrencyId} = ${rateFormatter.format(payment.exchangeRate)} ${payment.targetCurrencyId} (Tasa del $formattedRateDate)',
-                    ),
+                    Text(rateText), // Usamos la variable con la lógica
                     Text(
                       'Guardado: ${DateFormat('dd/MM/yy HH:mm').format(payment.calculationDate)}',
                     ),
@@ -500,8 +517,8 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
                   },
                   itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                     const PopupMenuItem<String>(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Editar Motivo'))),
-                    PopupMenuItem<String>(value: 'share', child: ListTile(leading: Icon(Icons.share_outlined), title: Text('Compartir'))),
-                    PopupMenuItem<String>(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Eliminar'))),
+                    const PopupMenuItem<String>(value: 'share', child: ListTile(leading: Icon(Icons.share_outlined), title: Text('Compartir'))),
+                    const PopupMenuItem<String>(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Eliminar'))),
                   ],
                   icon: const Icon(Icons.more_vert),
                   tooltip: 'Más opciones',
@@ -515,30 +532,31 @@ class _CalculatorViewState extends ConsumerState<CalculatorView> {
       error: (e, s) => Center(child: Text('Error: $e')),
     );
   }
-
-  Widget _buildRateInfoSection({
-    required DateTime currentDate,
-    required double displayRate,
-    required String sourceCurrency,
-    required String targetCurrency,
-  }) {
+  
+  Widget _buildRateInfoSection({ required DateTime currentDate }) {
     final defaultRate = ref.watch(defaultRateProvider);
     final futureRate = ref.watch(futureRateProvider);
     
+    final activeRateString = ref.watch(activeReferenceRateProvider);
+
     final isUsingFutureRate = futureRate != null &&
         DateUtils.isSameDay(futureRate.date, currentDate);
 
     final formattedDate = DateFormat.yMMMMEEEEd('es_ES').format(currentDate);
-    final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 24.0),
       child: Column(
         children: [
-          Text(
-            '1 $sourceCurrency = ${rateFormatter.format(displayRate)} $targetCurrency',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.grey, fontSize: 16),
+          SizedBox(
+            height: 24,
+            child: activeRateString.isNotEmpty
+                ? Text(
+                    activeRateString,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey, fontSize: 16),
+                  )
+                : null,
           ),
           const SizedBox(height: 8),
           GestureDetector(

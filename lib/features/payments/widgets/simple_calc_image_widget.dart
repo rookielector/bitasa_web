@@ -6,17 +6,26 @@ import 'package:intl/intl.dart';
 
 class SimpleCalcImageWidget extends StatelessWidget {
   final PaymentData paymentData;
+  final String? referenceRate;
 
-  const SimpleCalcImageWidget({super.key, required this.paymentData});
+  const SimpleCalcImageWidget({
+    super.key, 
+    required this.paymentData,
+    this.referenceRate,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Formateadores con el patrón de número correcto (punto para miles, coma para decimales).
     final numberFormatter = NumberFormat('#,##0.00', 'es_VE');
     final resultFormatter = NumberFormat('#,##0.00', 'es_VE');
     final rateFormatter = NumberFormat('#,##0.00', 'es_VE');
     final formattedCalcDate = DateFormat('dd/MM/yyyy HH:mm').format(paymentData.calculationDate);
     final formattedRateDate = DateFormat('dd/MM/yyyy').format(paymentData.rateDate);
+
+    // Lógica para determinar qué tasa mostrar
+    final rateLine = (referenceRate != null && referenceRate!.isNotEmpty)
+        ? referenceRate!
+        : '1 ${paymentData.sourceCurrencyId} = ${rateFormatter.format(paymentData.exchangeRate)} ${paymentData.targetCurrencyId}';
 
     return Container(
       padding: const EdgeInsets.all(20.0),
@@ -27,12 +36,8 @@ class SimpleCalcImageWidget extends StatelessWidget {
       width: 400, 
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center, // Centramos todo el contenido
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // --- LÍNEA CORREGIDA ---
-          // Usamos un 'Image.asset' simple. Si el asset no se encuentra, Flutter
-          // lanzará un error en la consola de depuración, pero no romperá la UI
-          // de la misma manera que una sintaxis incorrecta.
           Image.asset('assets/images/logo.webp', height: 60),
           
           const SizedBox(height: 16),
@@ -57,12 +62,11 @@ class SimpleCalcImageWidget extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           
-          // Usamos un Column para alinear correctamente la información adicional.
           Column(
             children: [
               _buildInfoRow(
                 'Tasa Aplicada:',
-                '1 ${paymentData.sourceCurrencyId} = ${rateFormatter.format(paymentData.exchangeRate)} ${paymentData.targetCurrencyId}',
+                rateLine, // Usamos la variable con la lógica
               ),
               _buildInfoRow('Fecha de la Tasa:', formattedRateDate),
               _buildInfoRow('Fecha del Cálculo:', formattedCalcDate),
