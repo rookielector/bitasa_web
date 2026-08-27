@@ -4,7 +4,7 @@ import 'package:bitasa_web/features/calculator/screens/calculator_view.dart';
 import 'package:bitasa_web/core/theme/theme_provider.dart';
 import 'package:bitasa_web/features/historical/screens/historical_prices_screen.dart';
 import 'package:bitasa_web/features/accounts/screens/financial_accounts_screen.dart';
-import 'package:bitasa_web/shared/widgets/ad_widget.dart';
+import 'package:bitasa_web/shared/widgets/affiliate_banner_widget.dart'; // <--- Importación añadida
 import 'package:bitasa_web/features/tutorial/providers/tutorial_provider.dart';
 import 'package:bitasa_web/features/faq/screens/faq_screen.dart';
 import 'package:flutter/material.dart';
@@ -125,7 +125,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             final bool isWideScreen = constraints.maxWidth > maxLayoutWidth;
 
             final scaffold = Scaffold(
-              // LÍNEA CORREGIDA: Se ha eliminado 'key: homeShellKey' de aquí.
               appBar: AppBar(
                 toolbarHeight: 80,
                 title: Image.asset('assets/images/logo.webp', height: 65),
@@ -220,7 +219,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                 children: [
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: AdWidget(),
+                    child: AffiliateBannerWidget(), // <--- Reemplazado aquí
                   ),
                   BottomNavigationBar(
                     items: const <BottomNavigationBarItem>[
