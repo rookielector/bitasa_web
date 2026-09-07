@@ -26,16 +26,23 @@ class _AffiliateBannerWidgetState extends State<AffiliateBannerWidget> {
     {
       'type': 'affiliate',
       'name': 'Binance',
-      'promo': 'Únete a la principal plataforma de trading de criptomonedas',
+      'promo': 'Únete al trading de criptomonedas',
       'url': 'https://account.binance.com/register?ref=20959762&?registerChannel=user_center',
       'badgeColor': const Color(0xFFF0B90B),
     },
     {
       'type': 'affiliate',
       'name': 'OKX',
-      'promo': 'Regístrate y gana criptomonedas, aprovecha la nueva tarjeta VISA',
+      'promo': 'Únete y aprovecha la tarjeta VISA',
       'url': 'https://okx.com/join/19610346',
       'badgeColor': const Color(0xFFFFFFFF),
+    },
+    {
+      'type': 'affiliate',
+      'name': 'Bitget',
+      'promo': 'Bajas comisiones y Copy Trading',
+      'url': 'https://partner.bitget.com/bg/423RKD', // <--- Tu enlace de Bitget integrado
+      'badgeColor': const Color(0xFF00F0FF),
     },
   ];
 
