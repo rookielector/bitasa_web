@@ -44,6 +44,13 @@ class _AffiliateBannerWidgetState extends State<AffiliateBannerWidget> {
       'url': 'https://partner.bitget.com/bg/423RKD', // <--- Tu enlace de Bitget integrado
       'badgeColor': const Color(0xFF00F0FF),
     },
+    {
+      'type': 'affiliate',
+      'name': 'Cashea',
+      'promo': 'Todos ganamos, registrate usando codigo: TJIW5R',
+      'url': 'https://mobile.cashea.app', // <--- Tu enlace de Bitget integrado
+      'badgeColor': const Color(0xFFFFDE21),
+    },
   ];
 
   @override
